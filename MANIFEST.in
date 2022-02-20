@@ -1,0 +1,7 @@
+include COPYING
+
+include README.md
+include INSTALL.md
+include CHANGELOG.md
+include CONTRIBUTING.md
+include pyproject.toml

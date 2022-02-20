@@ -1,0 +1,9 @@
+*.swp
+env/
+tags
+.formatted
+
+__pycache__/
+build/
+dist/
+*.egg-info
