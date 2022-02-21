@@ -298,6 +298,20 @@ def expand_sequences(
                 seq = cast("List[str]", spans[-1])
                 seq[-1] += c
                 mode = _SequenceParseMode.SEQUENCE
+    if mode != _SequenceParseMode.NORMAL:
+        if start_line is None:
+            raise SequenceParseError(
+                "Input ended while parsing a sequence or escaping a character",
+                text=" ".join(lines),
+                column=col,
+            )
+        else:
+            raise SequenceParseError(
+                "Input ended while parsing a sequence or escaping a character",
+                text=" ".join(lines),
+                line=start_line + row,
+                column=col,
+            )
     # Remove unused normal span at the end.
     if spans[-1] == "":
         spans.pop()
