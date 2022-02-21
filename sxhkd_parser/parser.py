@@ -25,6 +25,7 @@ from typing import (
 
 from .errors import (
     HotkeyTokenizeError,
+    InconsistentNoabortError,
     NonTerminalStateExitError,
     SequenceParseError,
     UnexpectedTokenError,
@@ -848,15 +849,31 @@ class Hotkey:
         )
 
         self.permutations = []
-        noabort_index_temp = None
+        noabort_indices: List[Optional[int]] = []
 
         for flat_perm in flattened_permutations:
             tokens = Hotkey.tokenize_static_hotkey(flat_perm, self.line)
             noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
             # print(flat_perm, tokens, chords, sep='\t')
             self.permutations.append(chords)
-            noabort_index_temp = noabort_index
-        self.noabort_index = noabort_index_temp
+            noabort_indices.append(noabort_index)
+
+        unique_indices = set(noabort_indices)
+        if len(unique_indices) > 1:
+            index_counts = dict(
+                sorted(
+                    ((i, noabort_indices.count(i)) for i in unique_indices),
+                    key=lambda x: x[1],
+                )
+            )
+            raise InconsistentNoabortError(
+                f"Noabort indicated in different places among permutations of '{self.raw if isinstance(self.raw, str) else ' '.join(self.raw)}' with index count: {index_counts}",
+                perms=self.permutations,
+                indices=noabort_indices,
+                index_counts=index_counts,
+            )
+        assert len(unique_indices) == 1
+        self.noabort_index = unique_indices.pop()
 
     @property
     def noabort(self) -> bool:

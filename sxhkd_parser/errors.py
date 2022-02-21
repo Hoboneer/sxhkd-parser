@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from .metadata import SectionTreeNode
-    from .parser import HotkeyToken, _HotkeyParseMode
+    from .parser import Chord, HotkeyToken, _HotkeyParseMode
 
     TransitionTable = Dict[
         str, Tuple[_HotkeyParseMode, Callable[[HotkeyToken], None]]
@@ -77,6 +77,20 @@ class NonTerminalStateExitError(HotkeyParseError):
     def __init__(self, message: str, mode: _HotkeyParseMode):
         super().__init__(message)
         self.mode = mode
+
+
+class InconsistentNoabortError(HotkeyParseError):
+    def __init__(
+        self,
+        message: str,
+        perms: List[List[Chord]],
+        indices: List[Optional[int]],
+        index_counts: Dict[Optional[int], int],
+    ):
+        super().__init__(message)
+        self.perms = perms
+        self.indices = indices
+        self.index_counts = index_counts
 
 
 class SectionHandlerError(SXHKDParserError):

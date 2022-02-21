@@ -44,3 +44,8 @@ preceding the start of the keybind that matches the given regex.
 - Hotkey: The sequence of chords needed to activate a command.
 - Command: The command passed to the shell after the hotkey is completed.
 - Keybind: The entity that encompasses the above.
+
+## Limitations
+
+- Inconsistent location of `:` to indicate noabort across the permutations of a hotkey:
+    - Each `Hotkey` object has a single `noabort_index` attribute.  This will not change.
