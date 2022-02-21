@@ -1088,9 +1088,9 @@ class Command:
     def __init__(
         self, command: Union[str, List[str]], line: Optional[int] = None
     ):
-        self.raw = command
         self.line = line
         if isinstance(command, str):
+            self.raw = command
             command = command.lstrip()
             col_shift = len(self.raw) - len(command)
             if command[0] == ";":
@@ -1100,6 +1100,7 @@ class Command:
             else:
                 self.synchronous = False
         else:
+            self.raw = command.copy()
             command[0] = command[0].lstrip()
             col_shift = len(self.raw[0]) - len(command[0])
             if command[0][0] == ";":
