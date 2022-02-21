@@ -15,6 +15,7 @@ from typing import (
     FrozenSet,
     Iterable,
     List,
+    NoReturn,
     Optional,
     Set,
     Tuple,
@@ -197,19 +198,24 @@ class _SequenceParseMode(Enum):
 
 def expand_sequences(
     text: Union[str, Iterable[str]],
-    start_line: Optional[int] = None,
-    start_column: int = 1,
+    start_line: int = 1,
+    column_shift: int = 0,
 ) -> SpanTreeNode:
     """Expand sequences of the form {s1,s2,...,sn} and return its decision tree.
 
     Allows `text` to be an iterable for each line of the text.
     Note that both types of `text` must not contain newline characters.
 
-    Set `start_line` to an int to include it in any error messages.
-    `start_column` may be useful for passing in cleaned-up `Command` text.
+    `start_line` may be set so that line numbers match up with the text being
+    read from a file.  It is an integer that must be at least 1.
+
+    `column_shift` is how many characters the first column of the *first* line
+    of `text` must be shifted so that error messages are accurate.  It must be
+    a non-negative integer.  It may be useful for passing in cleaned-up
+    `Command` text.
     """
-    assert start_line is None or start_line >= 1
-    assert start_column >= 1
+    assert start_line >= 1
+    assert column_shift >= 0
     if isinstance(text, str):
         assert "\n" not in text, repr(text)
         lines = [text]
@@ -220,24 +226,29 @@ def expand_sequences(
     # Spans of normal text and sequence text (i.e., choices of text).
     spans: List[Union[str, List[str]]] = [""]
     mode = _SequenceParseMode.NORMAL
+
+    # Only shift for the first row.
+    def _get_shifted_column() -> int:
+        if row == 0:
+            return col + column_shift
+        else:
+            return col
+
+    def _err(msg: str) -> NoReturn:
+        err = SequenceParseError(
+            msg,
+            text=" ".join(lines),
+            line=start_line + row,
+            column=_get_shifted_column(),
+        )
+        raise err
+
     # Operates on the most recent span.
     for row, line in enumerate(lines):
-        for col, c in enumerate(line, start=start_column):
+        for col, c in enumerate(line, start=1):
             if mode == _SequenceParseMode.NORMAL:
                 if c == "}":
-                    if start_line is None:
-                        raise SequenceParseError(
-                            "Unmatched closing brace",
-                            text=" ".join(lines),
-                            column=col,
-                        )
-                    else:
-                        raise SequenceParseError(
-                            "Unmatched closing brace",
-                            text=" ".join(lines),
-                            line=start_line + row,
-                            column=col,
-                        )
+                    _err("Unmatched closing brace")
                 elif c == "{":
                     mode = _SequenceParseMode.SEQUENCE
                     # Reuse the slot if unused.
@@ -260,20 +271,9 @@ def expand_sequences(
                 mode = _SequenceParseMode.NORMAL
             elif mode == _SequenceParseMode.SEQUENCE:
                 if c == "{":
-                    if start_line is None:
-                        raise SequenceParseError(
-                            "No nested sequences allowed (see https://github.com/baskerville/sxhkd/issues/67)",
-                            text=" ".join(lines),
-                            column=col,
-                        )
-                    else:
-                        raise SequenceParseError(
-                            "No nested sequences allowed (see https://github.com/baskerville/sxhkd/issues/67)",
-                            text=" ".join(lines),
-                            line=start_line + row,
-                            column=col,
-                        )
-                # XXX: for now, assume no new chords are formed in sequences: need to check in client code
+                    _err(
+                        "No nested sequences allowed (see https://github.com/baskerville/sxhkd/issues/67)"
+                    )
                 seq = cast("List[str]", spans[-1])
                 if c == ",":
                     expanded_seq = expand_range(seq[-1])
@@ -300,19 +300,7 @@ def expand_sequences(
                 seq[-1] += c
                 mode = _SequenceParseMode.SEQUENCE
     if mode != _SequenceParseMode.NORMAL:
-        if start_line is None:
-            raise SequenceParseError(
-                "Input ended while parsing a sequence or escaping a character",
-                text=" ".join(lines),
-                column=col,
-            )
-        else:
-            raise SequenceParseError(
-                "Input ended while parsing a sequence or escaping a character",
-                text=" ".join(lines),
-                line=start_line + row,
-                column=col,
-            )
+        _err("Input ended while parsing a sequence or escaping a character")
     # Remove unused normal span at the end.
     if spans[-1] == "":
         spans.pop()
@@ -840,7 +828,9 @@ class Hotkey:
         self.raw = hotkey
         self.line = line
 
-        root = expand_sequences(hotkey, start_line=self.line)
+        # It's okay if the error messages say it's at line 1:
+        # since it's at line 1 of the input anyway.
+        root = expand_sequences(hotkey, start_line=self.line or 1)
 
         flattened_permutations = list(
             it.chain.from_iterable(
@@ -1111,7 +1101,7 @@ class Command:
                 self.synchronous = False
 
         self._span_tree = root = expand_sequences(
-            command, start_line=line, start_column=1 + col_shift
+            command, start_line=line or 1, column_shift=col_shift
         )
 
         self.permutations = list(
