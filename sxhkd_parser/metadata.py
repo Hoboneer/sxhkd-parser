@@ -136,7 +136,7 @@ class SectionTreeNode:
 # recursive and works because:
 #   - base case: empty list
 #   - few cases above base: child_gaps is a flat list of (node,gap) pairs
-def _find_matching_section_rec(
+def _find_enclosing_section_rec(
     node: SectionTreeNode, keybind: Keybind
 ) -> List[Tuple[SectionTreeNode, int]]:
     assert node.start is not None, node
@@ -147,11 +147,11 @@ def _find_matching_section_rec(
     gap = abs(keybind.line - node.start) + abs(node.end - keybind.line)
     child_gaps = []
     for child in node.children:
-        child_gaps.extend(_find_matching_section_rec(child, keybind))
+        child_gaps.extend(_find_enclosing_section_rec(child, keybind))
     return [(node, gap)] + child_gaps
 
 
-def find_matching_section(
+def find_enclosing_section(
     node: SectionTreeNode, keybind: Keybind
 ) -> Optional[SectionTreeNode]:
     """Find smallest enclosing section that is a descendant of `node` for `keybind`.
@@ -161,7 +161,7 @@ def find_matching_section(
     assert keybind.line is not None, keybind
     gaps = []
     for child in node.children:
-        gaps.extend(_find_matching_section_rec(child, keybind))
+        gaps.extend(_find_enclosing_section_rec(child, keybind))
     # sort by gap size
     gaps.sort(key=lambda x: x[1])
     if gaps:
