@@ -303,7 +303,6 @@ class StackSectionHandler(SectionHandler):
 
 
 class MetadataParser(ABC):
-    # should dict values be str?
     @abstractmethod
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
         raise NotImplementedError
@@ -360,7 +359,6 @@ class KeyValueMetadataParser(MetadataParser):
                         value=value,
                         line=start_line + i,
                     )
-                # don't overwrite--just keep as a list?
                 metadata[key] = value
                 i -= 1
             elif self.empty_re.search(comment):

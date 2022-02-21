@@ -815,8 +815,6 @@ class Hotkey:
         "(?P<%s>%s)" % pair for pair in TOKEN_SPEC
     )
 
-    # TODO: warn in some linter tool if two hotkeys with identical chains except the last differ by their value of `noabort`?
-    #   - prerequisite: noabort used after *only* the second-to-last chord
     raw: Union[str, List[str]]
     line: Optional[int]
     permutations: List[List[Chord]] = field(repr=False)
