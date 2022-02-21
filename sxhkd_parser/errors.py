@@ -15,18 +15,26 @@ class SXHKDParserError(Exception):
     pass
 
 
-# XXX: remember that lines and columns are messed up due to the backslash processing.
 class SequenceParseError(SXHKDParserError):
-    def __init__(self, message: str, text: str, line: Optional[int] = None):
+    def __init__(
+        self,
+        message: str,
+        text: str,
+        line: Optional[int] = None,
+        column: Optional[int] = None,
+    ):
         self.message = message
         self.text = text
         self.line = line
+        self.column = column
 
     def __str__(self) -> str:
+        prefix = ""
         if self.line is not None:
-            return f"{self.line}: {self.message}"
-        else:
-            return self.message
+            prefix = f"{prefix}{self.line}:"
+        if self.column is not None:
+            prefix = f"{prefix}{self.column}: "
+        return f"{prefix}{self.message}"
 
 
 class HotkeyTokenizeError(SXHKDParserError):
@@ -56,11 +64,13 @@ class UnexpectedTokenError(HotkeyParseError):
         token: HotkeyToken,
         mode: _HotkeyParseMode,
         transitions: TransitionTable,
+        tokens: List[HotkeyToken],
     ):
         super().__init__(message)
         self.token = token
         self.mode = mode
         self.transitions = transitions
+        self.tokens = tokens
 
 
 class NonTerminalStateExitError(HotkeyParseError):

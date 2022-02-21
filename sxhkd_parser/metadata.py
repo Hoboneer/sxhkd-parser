@@ -90,7 +90,10 @@ class SectionTreeNode:
                         msg = f"{msg}: {desc_perm}"
                         print(msg)
                 else:
-                    msg = f"{msg} {keybind.hotkey.raw!r} (line {keybind.line})"
+                    if isinstance(keybind.hotkey.raw, str):
+                        msg = f"{msg} {keybind.hotkey.raw!r} (line {keybind.line})"
+                    else:
+                        msg = f"{msg} {' '.join(keybind.hotkey.raw)!r} (line {keybind.line})"
                     if "mode" in keybind.metadata:
                         msg = f"{msg} (mode: {keybind.metadata['mode']})"
                     msg = f"{msg}: {desc}"
@@ -98,7 +101,10 @@ class SectionTreeNode:
                 return
 
         else:
-            msg = f"{msg} {keybind.hotkey.raw!r} (line {keybind.line})"
+            if isinstance(keybind.hotkey.raw, str):
+                msg = f"{msg} {keybind.hotkey.raw!r} (line {keybind.line})"
+            else:
+                msg = f"{msg} {' '.join(keybind.hotkey.raw)!r} (line {keybind.line})"
             if "mode" in keybind.metadata:
                 msg = f"{msg} (mode: {keybind.metadata['mode']})"
             print(msg)

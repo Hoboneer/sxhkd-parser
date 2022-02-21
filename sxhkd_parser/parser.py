@@ -194,68 +194,110 @@ class _SequenceParseMode(Enum):
     SEQUENCE_ESCAPE_NEXT = auto()
 
 
-def expand_sequences(text: str) -> SpanTreeNode:
-    """Expand sequences of the form {s1,s2,...,sn} and return its decision tree."""
+def expand_sequences(
+    text: Union[str, Iterable[str]],
+    start_line: Optional[int] = None,
+    start_column: int = 1,
+) -> SpanTreeNode:
+    """Expand sequences of the form {s1,s2,...,sn} and return its decision tree.
+
+    Allows `text` to be an iterable for each line of the text.
+    Note that both types of `text` must not contain newline characters.
+
+    Set `start_line` to an int to include it in any error messages.
+    `start_column` may be useful for passing in cleaned-up `Command` text.
+    """
+    assert start_line is None or start_line >= 1
+    assert start_column >= 1
+    if isinstance(text, str):
+        assert "\n" not in text, repr(text)
+        lines = [text]
+    else:
+        lines = list(text)
+        assert lines
+        assert "\n" not in lines[0], repr(lines[0])
     # Spans of normal text and sequence text (i.e., choices of text).
     spans: List[Union[str, List[str]]] = [""]
     mode = _SequenceParseMode.NORMAL
     # Operates on the most recent span.
-    for c in text:
-        if mode == _SequenceParseMode.NORMAL:
-            if c == "}":
-                raise SequenceParseError("Unmatched closing brace", text=text)
-            elif c == "{":
-                mode = _SequenceParseMode.SEQUENCE
-                # Reuse the slot if unused.
-                if spans[-1] == "":
-                    spans[-1] = [""]
-                else:
-                    spans.append([""])
-                continue
-            elif c == "\\":
-                mode = _SequenceParseMode.NORMAL_ESCAPE_NEXT
-            spans[-1] += c  # type: ignore
-        elif mode == _SequenceParseMode.NORMAL_ESCAPE_NEXT:
-            # Sequences can be escaped in normal mode, so the backslash shouldn't remain.
-            # There are no nested sequences, so nothing to be done for sequence mode.
-            if c in ("{", "}"):
-                # The last character was a backslash, so replace it.
-                spans[-1] = spans[-1][:-1] + c  # type: ignore
-            else:
+    for row, line in enumerate(lines):
+        for col, c in enumerate(line, start=start_column):
+            if mode == _SequenceParseMode.NORMAL:
+                if c == "}":
+                    if start_line is None:
+                        raise SequenceParseError(
+                            "Unmatched closing brace",
+                            text=" ".join(lines),
+                            column=col,
+                        )
+                    else:
+                        raise SequenceParseError(
+                            "Unmatched closing brace",
+                            text=" ".join(lines),
+                            line=start_line + row,
+                            column=col,
+                        )
+                elif c == "{":
+                    mode = _SequenceParseMode.SEQUENCE
+                    # Reuse the slot if unused.
+                    if spans[-1] == "":
+                        spans[-1] = [""]
+                    else:
+                        spans.append([""])
+                    continue
+                elif c == "\\":
+                    mode = _SequenceParseMode.NORMAL_ESCAPE_NEXT
                 spans[-1] += c  # type: ignore
-            mode = _SequenceParseMode.NORMAL
-        elif mode == _SequenceParseMode.SEQUENCE:
-            if c == "{":
-                raise SequenceParseError(
-                    "No nested sequences allowed (see https://github.com/baskerville/sxhkd/issues/67)",
-                    text=text,
-                )
-            # XXX: for now, assume no new chords are formed in sequences: need to check in client code
-            seq = cast("List[str]", spans[-1])
-            if c == ",":
-                expanded_seq = expand_range(seq[-1])
-                if isinstance(expanded_seq, list):
-                    del seq[-1]
-                    seq.extend(expanded_seq)
-                # If not a list, then no expansion was done.
-                seq.append("")
-                continue
-            elif c == "}":
+            elif mode == _SequenceParseMode.NORMAL_ESCAPE_NEXT:
+                # Sequences can be escaped in normal mode, so the backslash shouldn't remain.
+                # There are no nested sequences, so nothing to be done for sequence mode.
+                if c in ("{", "}"):
+                    # The last character was a backslash, so replace it.
+                    spans[-1] = spans[-1][:-1] + c  # type: ignore
+                else:
+                    spans[-1] += c  # type: ignore
                 mode = _SequenceParseMode.NORMAL
-                expanded_seq = expand_range(seq[-1])
-                if isinstance(expanded_seq, list):
-                    del seq[-1]
-                    seq.extend(expanded_seq)
-                # If not a list, then no expansion was done.
-                spans.append("")
-                continue
-            elif c == "\\":
-                mode = _SequenceParseMode.SEQUENCE_ESCAPE_NEXT
-            seq[-1] += c
-        elif mode == _SequenceParseMode.SEQUENCE_ESCAPE_NEXT:
-            seq = cast("List[str]", spans[-1])
-            seq[-1] += c
-            mode = _SequenceParseMode.SEQUENCE
+            elif mode == _SequenceParseMode.SEQUENCE:
+                if c == "{":
+                    if start_line is None:
+                        raise SequenceParseError(
+                            "No nested sequences allowed (see https://github.com/baskerville/sxhkd/issues/67)",
+                            text=" ".join(lines),
+                            column=col,
+                        )
+                    else:
+                        raise SequenceParseError(
+                            "No nested sequences allowed (see https://github.com/baskerville/sxhkd/issues/67)",
+                            text=" ".join(lines),
+                            line=start_line + row,
+                            column=col,
+                        )
+                # XXX: for now, assume no new chords are formed in sequences: need to check in client code
+                seq = cast("List[str]", spans[-1])
+                if c == ",":
+                    expanded_seq = expand_range(seq[-1])
+                    if isinstance(expanded_seq, list):
+                        del seq[-1]
+                        seq.extend(expanded_seq)
+                    # If not a list, then no expansion was done.
+                    seq.append("")
+                    continue
+                elif c == "}":
+                    mode = _SequenceParseMode.NORMAL
+                    expanded_seq = expand_range(seq[-1])
+                    if isinstance(expanded_seq, list):
+                        del seq[-1]
+                        seq.extend(expanded_seq)
+                    # If not a list, then no expansion was done.
+                    spans.append("")
+                    continue
+                elif c == "\\":
+                    mode = _SequenceParseMode.SEQUENCE_ESCAPE_NEXT
+                seq[-1] += c
+            elif mode == _SequenceParseMode.SEQUENCE_ESCAPE_NEXT:
+                seq = cast("List[str]", spans[-1])
+                seq[-1] += c
+                mode = _SequenceParseMode.SEQUENCE
     # Remove unused normal span at the end.
     if spans[-1] == "":
         spans.pop()
@@ -772,20 +814,18 @@ class Hotkey:
 
     # TODO: warn in some linter tool if two hotkeys with identical chains except the last differ by their value of `noabort`?
     #   - prerequisite: noabort used after *only* the second-to-last chord
-    raw: str
+    raw: Union[str, List[str]]
     line: Optional[int]
     permutations: List[List[Chord]] = field(repr=False)
     noabort_index: Optional[int]
 
-    def __init__(self, hotkey: str, line: Optional[int] = None):
+    def __init__(
+        self, hotkey: Union[str, List[str]], line: Optional[int] = None
+    ):
         self.raw = hotkey
         self.line = line
 
-        try:
-            root = expand_sequences(hotkey)
-        except SequenceParseError as e:
-            e.line = line
-            raise
+        root = expand_sequences(hotkey, start_line=self.line)
 
         # Ensure no new chords formed within sequences (i.e., branches of the decision tree).
         # We can only be sure if only some of the children of any given node have a ';' or ':'.
@@ -852,7 +892,7 @@ class Hotkey:
 
     @staticmethod
     def tokenize_static_hotkey(
-        hotkey: str, line: Optional[int]
+        hotkey: str, line: Optional[int] = None
     ) -> List[HotkeyToken]:
         """Tokenize a hotkey with pre-expanded {s1,s2,...,sn} sequences.
 
@@ -880,7 +920,7 @@ class Hotkey:
 
     @staticmethod
     def parse_static_hotkey(
-        tokens: Iterable[HotkeyToken],
+        tokens: List[HotkeyToken],
     ) -> Tuple[Optional[int], List[Chord]]:
         """Parse a hotkey with pre-expanded {s1,s2,...,sn} sequences.
 
@@ -942,6 +982,7 @@ class Hotkey:
                     token=tok,
                     mode=mode,
                     transitions=transition_table,
+                    tokens=tokens,
                 )
 
         # Transitions from state-to-state based on received token,
@@ -992,10 +1033,11 @@ class Hotkey:
                 next_mode, callback = transition_table[token.type]
             except KeyError as e:
                 raise UnexpectedTokenError(
-                    f"{mode.name} parser state expected token out of {list(transition_table.keys())} but got {token!r}",
+                    f"{mode.name} parser state expected token out of {list(transition_table.keys())} but got {token!r} from {tokens!r}",
                     token=token,
                     mode=mode,
                     transitions=transition_table,
+                    tokens=tokens,
                 ) from e
             else:
                 callback(token)
@@ -1020,23 +1062,39 @@ class Command:
         synchronous: whether the command should be executed synchronously or asynchronously.
     """
 
-    raw: str
+    raw: Union[str, List[str]]
     line: Optional[int]
     _span_tree: SpanTreeNode = field(repr=False)
     permutations: List[str] = field(repr=False)
     synchronous: bool
 
-    def __init__(self, command: str, line: Optional[int] = None):
+    def __init__(
+        self, command: Union[str, List[str]], line: Optional[int] = None
+    ):
         self.raw = command
         self.line = line
-        command = command.lstrip()
-        if command[0] == ";":
-            self.synchronous = True
-            command = command[1:]
+        if isinstance(command, str):
+            command = command.lstrip()
+            col_shift = len(self.raw) - len(command)
+            if command[0] == ";":
+                self.synchronous = True
+                command = command[1:]
+                col_shift += 1
+            else:
+                self.synchronous = False
         else:
-            self.synchronous = False
+            command[0] = command[0].lstrip()
+            col_shift = len(self.raw[0]) - len(command[0])
+            if command[0][0] == ";":
+                self.synchronous = True
+                command[0] = command[0][1:]
+                col_shift += 1
+            else:
+                self.synchronous = False
 
-        self._span_tree = root = expand_sequences(command)
+        self._span_tree = root = expand_sequences(
+            command, start_line=line, start_column=1 + col_shift
+        )
 
         self.permutations = list(
             it.chain.from_iterable(
@@ -1058,8 +1116,8 @@ class Keybind:
 
     def __init__(
         self,
-        hotkey: str,
-        command: str,
+        hotkey: Union[str, List[str]],
+        command: Union[str, List[str]],
         hotkey_start_line: Optional[int] = None,
         command_start_line: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,

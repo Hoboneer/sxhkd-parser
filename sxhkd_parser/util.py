@@ -27,15 +27,17 @@ def read_sxhkdrc(
     if metadata_parser is None:
         metadata_parser = NullMetadataParser()
 
-    hotkey: Optional[str] = None
+    hotkey: Optional[List[str]] = None
     hotkey_start_line: Optional[int] = None
-    command: Optional[str] = None
+    command: Optional[List[str]] = None
     command_start_line: Optional[int] = None
 
     comment_block_start_line: Optional[int] = None
     comment_buf: List[str] = []
 
+    lines: List[str] = []
     line_no: int = 0
+    line_block_start: int
     try:
         while True:
             line = f.readline()
@@ -43,6 +45,7 @@ def read_sxhkdrc(
             if not line:
                 break
             line_no += 1
+            line_block_start = line_no
             line = line.rstrip("\n")
             # sxhkd ignores empty lines.
             if not line:
@@ -63,21 +66,22 @@ def read_sxhkdrc(
                     comment_buf.append(line)
                 continue
 
-            while line and line[-1] == "\\":
+            lines.append(line)
+            while lines[-1][-1] == "\\":
                 # Exclude the backslash character escaping the newline.
-                line = line[:-1]
+                lines[-1] = lines[-1][:-1]
                 next_line = f.readline()
                 # readline() returns the empty string upon EOF.
                 if not next_line:
                     break
-                line += next_line.rstrip("\n")
+                lines.append(next_line.rstrip("\n"))
                 line_no += 1
 
             if line.startswith((" ", "\t")):
                 # command!
                 assert hotkey is not None
-                command = line
-                command_start_line = line_no
+                command = lines.copy()
+                command_start_line = line_block_start
 
                 if comment_buf:
                     metadata = metadata_parser.parse(
@@ -100,13 +104,15 @@ def read_sxhkdrc(
 
                 hotkey = command = None
                 hotkey_start_line = command_start_line = None
+                lines.clear()
             else:
                 # hotkey!
                 assert hotkey is None and hotkey_start_line is None, repr(
                     (hotkey, hotkey_start_line, line)
                 )
-                hotkey = line
-                hotkey_start_line = line_no
+                hotkey = lines.copy()
+                hotkey_start_line = line_block_start
+                lines.clear()
 
     except Exception:
         raise
