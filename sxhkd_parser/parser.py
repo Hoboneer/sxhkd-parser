@@ -841,20 +841,6 @@ class Hotkey:
 
         root = expand_sequences(hotkey, start_line=self.line)
 
-        # Ensure no new chords formed within sequences (i.e., branches of the decision tree).
-        # We can only be sure if only some of the children of any given node have a ';' or ':'.
-        def _check_no_sequences(node: SpanTreeNode, is_root: bool) -> None:
-            if not node.children:
-                return
-            for child in node.children:
-                if not is_root and (";" in child.value or ":" in child.value):
-                    raise RuntimeError(
-                        "cannot handle new chords within sequences (how does sxhkd handle it?)"
-                    )
-                _check_no_sequences(child, False)
-
-        _check_no_sequences(root, is_root=True)
-
         flattened_permutations = list(
             it.chain.from_iterable(
                 child.generate_permutations() for child in root.children
@@ -1144,8 +1130,6 @@ class Keybind:
         self.hotkey: Hotkey = Hotkey(hotkey, line=hotkey_start_line)
         self.command: Command = Command(command, line=command_start_line)
 
-        chain_lengths = set(len(chain) for chain in self.hotkey.permutations)
-        assert len(chain_lengths) == 1, chain_lengths
         if len(self.hotkey.permutations) != len(self.command.permutations):
             raise ValueError(
                 f"inconsistent number of cases: hotkey-cases={len(self.hotkey.permutations)}, command-cases={len(self.command.permutations)}"
