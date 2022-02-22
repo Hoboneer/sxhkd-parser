@@ -427,9 +427,9 @@ class SimpleDescriptionParser(MetadataParser):
 
     def __init__(self, description_re: str):
         self.description_re = re.compile(description_re)
-        if "value" not in self.description_re.groupindex:
+        if "description" not in self.description_re.groupindex:
             raise ValueError(
-                "description regex must have the named group 'value'"
+                "description regex must have the named group 'description'"
             )
 
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
@@ -438,7 +438,7 @@ class SimpleDescriptionParser(MetadataParser):
         maybe_description = comments[-1]
         m = self.description_re.search(maybe_description)
         if m:
-            return {"description": m.group("value")}
+            return {"description": m.group("description")}
         else:
             return {}
 
