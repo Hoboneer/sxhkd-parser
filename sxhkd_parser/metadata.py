@@ -508,13 +508,13 @@ class KeyValueMetadataParser(MetadataParser):
         block, but don't define key-value pairs.  Useful for "blank" lines
         between key-value pairs or for comments about them in a separate line.
 
-        NOTE: duplicate keys cause MetadataParserError to be raised, although
-        the "duplicate" is actually on a line before the real duplicate due to
-        the parse order.
+        NOTE: duplicate keys cause MetadataParserError to be raised.
         """
         comments = list(lines)
-        metadata = {}
-        # Reads them bottom-up, so "duplicates" are actually earlier in the file.
+        # Each dict value stores the line number of the pair that is latest in
+        # the file, so that errors on duplicates show the actual duplicate
+        # rather than the first occurrence.
+        metadata: Dict[str, Tuple[int, Any]] = {}
         i = len(comments) - 1
         while i >= 0:
             comment = comments[i]
@@ -523,13 +523,14 @@ class KeyValueMetadataParser(MetadataParser):
                 key = m.group("key")
                 value = m.group("value")
                 if key in metadata:
+                    dup_line, _ = metadata[key]
                     raise MetadataParserError(
                         f"Duplicate key '{key}'",
                         key=key,
                         value=value,
-                        line=start_line + i,
+                        line=dup_line,
                     )
-                metadata[key] = value
+                metadata[key] = (start_line + i, value)
                 i -= 1
             elif self.empty_re.search(comment):
                 # metadata continues
@@ -537,4 +538,4 @@ class KeyValueMetadataParser(MetadataParser):
                 continue
             else:
                 break
-        return metadata
+        return {key: val for key, (_, val) in metadata.items()}
