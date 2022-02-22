@@ -67,13 +67,18 @@ class SpanTreeNode:
         self.children.append(child)
         return child
 
-    def print_tree(self, level: int = 0) -> None:
+    def _print_tree_rec(self, level: int) -> None:
+        assert level >= 0
         if level == 0:
             print(repr(self.value))
         else:
             print(f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r}")
         for child in self.children:
-            child.print_tree(level + 1)
+            child._print_tree_rec(level + 1)
+
+    def print_tree(self) -> None:
+        """Print the tree, rooted at this node."""
+        self._print_tree_rec(0)
 
     def _generate_permutations_rec(self) -> List[Union[str, List[str]]]:
         """Recursively return all permutations of the text.
@@ -746,13 +751,18 @@ class KeypressTreeNode:
         self.children.append(child)
         return child
 
-    def print_tree(self, level: int = 0) -> None:
+    def _print_tree_rec(self, level: int) -> None:
+        assert level >= 0
         if level == 0:
             print(repr(self.value))
         else:
             print(f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r}")
         for child in self.children:
-            child.print_tree(level + 1)
+            child._print_tree_rec(level + 1)
+
+    def print_tree(self) -> None:
+        """Print the tree, rooted at this node."""
+        self._print_tree_rec(0)
 
 
 class _HotkeyParseMode(Enum):

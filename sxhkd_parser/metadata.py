@@ -109,17 +109,12 @@ class SectionTreeNode:
                 msg = f"{msg} (mode: {keybind.metadata['mode']})"
             print(msg)
 
-    def print_tree(
+    def _print_tree_rec(
         self,
-        level: int = 0,
-        keybind_child_callback: Optional[
-            Callable[[Keybind, int], None]
-        ] = None,
+        level: int,
+        keybind_child_callback: Callable[[Keybind, int], None],
     ) -> None:
-        if not keybind_child_callback:
-            keybind_child_callback = (
-                SectionTreeNode._default_keybind_child_callback
-            )
+        assert level >= 0
         pos = (self.start, self.end)
         if level == 0:
             print(f"{self.name} {pos}")
@@ -130,7 +125,20 @@ class SectionTreeNode:
             keybind_child_callback(keybind, level + 1)
         # And now the descendants.
         for child in self.children:
-            child.print_tree(level + 1)
+            child._print_tree_rec(level + 1, keybind_child_callback)
+
+    def print_tree(
+        self,
+        keybind_child_callback: Optional[
+            Callable[[Keybind, int], None]
+        ] = None,
+    ) -> None:
+        """Print the section tree rooted at this node, with keybinds."""
+        if not keybind_child_callback:
+            keybind_child_callback = (
+                SectionTreeNode._default_keybind_child_callback
+            )
+        self._print_tree_rec(0, keybind_child_callback)
 
 
 # recursive and works because:
