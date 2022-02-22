@@ -24,14 +24,18 @@ from .parser import Chord, Hotkey, Keybind, SpanTreeNode, expand_sequences
 #   - each section completely encloses all subsections recursively
 @dataclass
 class SectionTreeNode:
-    # all three are None for the default section
-    name: str
+    """Node representing a section in the sxhkdrc.
+
+    Note that only the root section will have `name` be `None`.
+    """
+
+    name: Optional[str]
     start: int
     end: Optional[int]
     children: List[SectionTreeNode]
     keybind_children: List[Keybind]
 
-    def __init__(self, name: str, start: int, end: Optional[int]):
+    def __init__(self, name: Optional[str], start: int, end: Optional[int]):
         self.name = name
         self.start = start
         # initially None when created
@@ -140,6 +144,11 @@ class SectionTreeNode:
             )
         self._print_tree_rec(0, keybind_child_callback)
 
+    @classmethod
+    def build_root(cls) -> SectionTreeNode:
+        """Return a new root node."""
+        return cls(None, 1, None)
+
 
 # recursive and works because:
 #   - base case: empty list
@@ -204,7 +213,7 @@ class NullSectionHandler(SectionHandler):
     _dummy_node: SectionTreeNode
 
     def __init__(self) -> None:
-        self._dummy_node = SectionTreeNode(None, None, None)  # type: ignore
+        self._dummy_node = SectionTreeNode.build_root()
 
     def push(self, text: str, line: int) -> bool:
         return False
@@ -231,7 +240,7 @@ class SimpleSectionHandler(SectionHandler):
             raise ValueError(
                 "section header regex must have the named group 'name'"
             )
-        self._root = SectionTreeNode(None, None, None)  # type: ignore
+        self._root = SectionTreeNode.build_root()
         self.sections = [self._root]
 
     def push(self, text: str, line: int) -> bool:
@@ -276,7 +285,7 @@ class StackSectionHandler(SectionHandler):
             raise ValueError(
                 "section header regex must have the named group 'name'"
             )
-        self._section_tree = SectionTreeNode(None, None, None)  # type: ignore
+        self._section_tree = SectionTreeNode.build_root()
         self._section_stack = [self._section_tree]
 
     def push(self, text: str, line: int) -> bool:
