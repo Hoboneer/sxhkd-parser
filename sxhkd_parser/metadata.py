@@ -193,15 +193,13 @@ class SectionHandler(ABC):
 
 @dataclass
 class NullSectionHandler(SectionHandler):
-    accept: bool
     _dummy_node: SectionTreeNode
 
-    def __init__(self, accept: bool):
-        self.accept = accept
+    def __init__(self) -> None:
         self._dummy_node = SectionTreeNode(None, None, None)  # type: ignore
 
     def push(self, text: str, line: int) -> bool:
-        return self.accept
+        return False
 
     def push_eof(self, last_line: int) -> None:
         return

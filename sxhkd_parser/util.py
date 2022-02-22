@@ -23,7 +23,7 @@ def read_sxhkdrc(
         # Passed in a file object.
         close_io = False
     if section_handler is None:
-        section_handler = NullSectionHandler(accept=False)
+        section_handler = NullSectionHandler()
     if metadata_parser is None:
         metadata_parser = NullMetadataParser()
 
