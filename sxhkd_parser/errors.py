@@ -29,12 +29,15 @@ class SequenceParseError(SXHKDParserError):
         self.column = column
 
     def __str__(self) -> str:
-        prefix = ""
         if self.line is not None:
-            prefix = f"{prefix}{self.line}:"
-        if self.column is not None:
-            prefix = f"{prefix}{self.column}: "
-        return f"{prefix}{self.message}"
+            if self.column is None:
+                return f"{self.line}: {self.message}"
+            else:
+                return f"{self.line}:{self.column}: {self.message}"
+        elif self.column is not None:
+            return f"{self.message} at column {self.column}"
+        else:
+            return self.message
 
 
 class HotkeyTokenizeError(SXHKDParserError):
