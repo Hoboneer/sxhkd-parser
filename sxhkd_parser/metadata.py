@@ -46,6 +46,7 @@ class SectionTreeNode:
     def add_child(
         self, name: str, start: int, end: Optional[int]
     ) -> SectionTreeNode:
+        """Add a subsection with the given name and line range."""
         child = SectionTreeNode(name, start, end)
         self.children.append(child)
         return child
