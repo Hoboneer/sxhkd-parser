@@ -1,3 +1,4 @@
+"""Convenience functions for using the library."""
 from os import PathLike
 from typing import Iterable, List, Optional, TextIO, Union, cast
 
@@ -10,6 +11,33 @@ def read_sxhkdrc(
     section_handler: Optional[SectionHandler] = None,
     metadata_parser: Optional[MetadataParser] = None,
 ) -> Iterable[Keybind]:
+    """Parse keybinds from a given file or path, yielding a stream.
+
+    `file` may be a filename, `os.PathLike`, or an opened file.  In the case of
+    an opened file, it is not closed at the end of the function.
+
+    A block of comments is maintained so that it can be passed to
+    `MetadataParser.parse` and given to a `Keybind`.
+
+    Upon encountering an empty line, this isolated block of comments is cleared
+    so that it can't be attached to any keybinds.
+
+    Upon encountering a comment line, the section first has its `push` method
+    called on the line to define any sections if it matches.
+    If a comment *doesn't* create a new section (`push` returns `False`), the
+    line is added to the block of comments.
+    But if a comment *does* create a new section, the block of comments is
+    cleared, cutting off comments above section comments from any keybinds
+    below them.
+
+    If `section_handler` is `None`, no sections (i.e., `SectionTreeNode`
+    objects) are made: they must be created manually afterwards.  Otherwise,
+    the given SectionHandler instance is used to manage sections and add
+    keybinds to them.
+
+    If `metadata_parser` is `None`, all metadata comments are ignored and every
+    `Keybind` instance is given an empty dict instead.
+    """
     if isinstance(file, (str, PathLike)):
         f = open(file)
         close_io = True
