@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import itertools as it
 import re
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass, field
 from typing import (
     Any,
@@ -194,13 +194,12 @@ class SectionHandler(ABC):
     def push(self, text: str, line: int) -> bool:
         raise NotImplementedError
 
-    @abstractmethod
     def push_eof(self, last_line: int) -> None:
-        raise NotImplementedError
+        self.root.end = last_line
 
     # should be the tree that the handler operates on -> it should update!
-    @abstractmethod
-    def get_tree(self) -> SectionTreeNode:
+    @abstractproperty
+    def root(self) -> SectionTreeNode:
         raise NotImplementedError
 
     @abstractmethod
@@ -218,10 +217,8 @@ class NullSectionHandler(SectionHandler):
     def push(self, text: str, line: int) -> bool:
         return False
 
-    def push_eof(self, last_line: int) -> None:
-        return
-
-    def get_tree(self) -> SectionTreeNode:
+    @property
+    def root(self) -> SectionTreeNode:
         return self._section
 
     def current_section(self) -> SectionTreeNode:
@@ -261,10 +258,8 @@ class SimpleSectionHandler(SectionHandler):
         else:
             return False
 
-    def push_eof(self, last_line: int) -> None:
-        return
-
-    def get_tree(self) -> SectionTreeNode:
+    @property
+    def root(self) -> SectionTreeNode:
         return self._root
 
     def current_section(self) -> SectionTreeNode:
@@ -317,8 +312,10 @@ class StackSectionHandler(SectionHandler):
                 last_line=last_line,
                 sections=self._section_stack[1:],
             )
+        super().push_eof(last_line)
 
-    def get_tree(self) -> SectionTreeNode:
+    @property
+    def root(self) -> SectionTreeNode:
         return self._section_tree
 
     def current_section(self) -> SectionTreeNode:
