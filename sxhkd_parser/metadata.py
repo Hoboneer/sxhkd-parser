@@ -51,6 +51,11 @@ class SectionTreeNode:
         return child
 
     def add_keybind(self, keybind: Keybind) -> None:
+        """Add `keybind` to this section as a direct child."""
+        if keybind.line is not None:
+            assert keybind.line >= self.start
+            if self.end is not None:
+                assert keybind.line <= self.end
         self.keybind_children.append(keybind)
 
     @staticmethod
