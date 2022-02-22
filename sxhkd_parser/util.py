@@ -99,7 +99,7 @@ def read_sxhkdrc(
                     command_start_line=command_start_line,
                     metadata=metadata,
                 )
-                section_handler.current_section().add_keybind(keybind)
+                section_handler.current_section.add_keybind(keybind)
                 yield keybind
 
                 hotkey = command = None

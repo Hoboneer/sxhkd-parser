@@ -207,7 +207,7 @@ class SectionHandler(ABC):
     def root(self) -> SectionTreeNode:
         raise NotImplementedError
 
-    @abstractmethod
+    @abstractproperty
     def current_section(self) -> SectionTreeNode:
         raise NotImplementedError
 
@@ -226,6 +226,7 @@ class NullSectionHandler(SectionHandler):
     def root(self) -> SectionTreeNode:
         return self._section
 
+    @property
     def current_section(self) -> SectionTreeNode:
         return self._section
 
@@ -267,6 +268,7 @@ class SimpleSectionHandler(SectionHandler):
     def root(self) -> SectionTreeNode:
         return self._root
 
+    @property
     def current_section(self) -> SectionTreeNode:
         return self.sections[-1]
 
@@ -323,6 +325,7 @@ class StackSectionHandler(SectionHandler):
     def root(self) -> SectionTreeNode:
         return self._section_tree
 
+    @property
     def current_section(self) -> SectionTreeNode:
         return self._section_stack[-1]
 
