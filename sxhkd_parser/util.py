@@ -4,7 +4,7 @@ from typing import Iterable, List, Optional, TextIO, Union, cast
 from .metadata import (
     MetadataParser,
     NullMetadataParser,
-    NullSectionHandler,
+    RootSectionHandler,
     SectionHandler,
 )
 from .parser import Keybind
@@ -23,7 +23,7 @@ def read_sxhkdrc(
         # Passed in a file object.
         close_io = False
     if section_handler is None:
-        section_handler = NullSectionHandler()
+        section_handler = RootSectionHandler()
     if metadata_parser is None:
         metadata_parser = NullMetadataParser()
 

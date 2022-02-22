@@ -213,7 +213,7 @@ class SectionHandler(ABC):
 
 
 @dataclass
-class NullSectionHandler(SectionHandler):
+class RootSectionHandler(SectionHandler):
     _section: SectionTreeNode
 
     def __init__(self) -> None:
