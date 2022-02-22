@@ -1,12 +1,7 @@
 from os import PathLike
 from typing import Iterable, List, Optional, TextIO, Union, cast
 
-from .metadata import (
-    MetadataParser,
-    NullMetadataParser,
-    RootSectionHandler,
-    SectionHandler,
-)
+from .metadata import MetadataParser, NullMetadataParser, SectionHandler
 from .parser import Keybind
 
 
@@ -22,8 +17,6 @@ def read_sxhkdrc(
         f = file
         # Passed in a file object.
         close_io = False
-    if section_handler is None:
-        section_handler = RootSectionHandler()
     if metadata_parser is None:
         metadata_parser = NullMetadataParser()
 
@@ -55,10 +48,11 @@ def read_sxhkdrc(
             #   - maybe that should be up to the user? (expand_sequences is public!)
             if line.startswith("#"):
                 # line number so keybinds can be matched to sections later
-                if section_handler.push(line, line_no):
-                    # section handler ate it up
-                    comment_block_start_line = None
-                    comment_buf.clear()  # cut off any comments that could attach to a keybind
+                if section_handler is not None:
+                    if section_handler.push(line, line_no):
+                        # section handler ate it up
+                        comment_block_start_line = None
+                        comment_buf.clear()  # cut off any comments that could attach to a keybind
                 else:
                     if not comment_buf:
                         assert comment_block_start_line is None
@@ -99,7 +93,8 @@ def read_sxhkdrc(
                     command_start_line=command_start_line,
                     metadata=metadata,
                 )
-                section_handler.current_section.add_keybind(keybind)
+                if section_handler is not None:
+                    section_handler.current_section.add_keybind(keybind)
                 yield keybind
 
                 hotkey = command = None
@@ -117,6 +112,7 @@ def read_sxhkdrc(
     except Exception:
         raise
     finally:
-        section_handler.push_eof(line_no)
+        if section_handler is not None:
+            section_handler.push_eof(line_no)
         if close_io:
             f.close()
