@@ -42,6 +42,9 @@ def read_sxhkdrc(
             line = line.rstrip("\n")
             # sxhkd ignores empty lines.
             if not line:
+                # Cut off any isolated comment blocks.
+                comment_block_start_line = None
+                comment_buf.clear()
                 continue
 
             # TODO: add descriptions (or should it be for any metadata element?) with sequence expansion
