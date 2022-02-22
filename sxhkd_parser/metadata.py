@@ -210,10 +210,10 @@ class SectionHandler(ABC):
 
 @dataclass
 class NullSectionHandler(SectionHandler):
-    _dummy_node: SectionTreeNode
+    _section: SectionTreeNode
 
     def __init__(self) -> None:
-        self._dummy_node = SectionTreeNode.build_root()
+        self._section = SectionTreeNode.build_root()
 
     def push(self, text: str, line: int) -> bool:
         return False
@@ -222,10 +222,10 @@ class NullSectionHandler(SectionHandler):
         return
 
     def get_tree(self) -> SectionTreeNode:
-        return self._dummy_node
+        return self._section
 
     def current_section(self) -> SectionTreeNode:
-        return self._dummy_node
+        return self._section
 
 
 @dataclass
