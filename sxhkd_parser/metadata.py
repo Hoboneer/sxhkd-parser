@@ -410,22 +410,42 @@ class StackSectionHandler(SectionHandler):
 
 
 class MetadataParser(ABC):
+    """Abstract base class for parsing metadata comments for a keybind.
+
+    Abstract methods:
+        - parse
+    """
+
     @abstractmethod
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
+        """Parse metadata from the comments immediately preceding a keybind."""
         raise NotImplementedError
 
 
 @dataclass
 class NullMetadataParser(MetadataParser):
+    """Parser that always returns an empty mapping when parsing."""
+
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
+        """Return an empty dict."""
         return {}
 
 
 @dataclass
 class SimpleDescriptionParser(MetadataParser):
+    """Parser for the description line immediately above a keybind.
+
+    Instance variables:
+        description_re: the pattern to parse out the description from the comment.
+    """
+
     description_re: Pattern[str]
 
     def __init__(self, description_re: str):
+        """Create an instance with a regex for description lines.
+
+        `description_re` must have a named group 'description'.
+        """
         self.description_re = re.compile(description_re)
         if "description" not in self.description_re.groupindex:
             raise ValueError(
@@ -433,6 +453,12 @@ class SimpleDescriptionParser(MetadataParser):
             )
 
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
+        """Parse a description from the last element of `lines`.
+
+        If the regex match with `description_re` succeeds, a dict with the
+        key-value pair "description" and the 'description' match group is
+        returned.  Otherwise, an empty dict is returned instead.
+        """
         comments = list(lines)
         assert len(comments) > 0
         maybe_description = comments[-1]
@@ -445,10 +471,22 @@ class SimpleDescriptionParser(MetadataParser):
 
 @dataclass
 class KeyValueMetadataParser(MetadataParser):
+    """Parser for key-value pairs in metadata.
+
+    Instance variables:
+        pair_re: the pattern to parse out key-value pairs.
+        empty_re: the pattern to match empty metadata lines.
+    """
+
     pair_re: Pattern[str]
     empty_re: Pattern[str]  # part of description but no pair
 
     def __init__(self, pair_re: str, empty_re: str):
+        """Create an instance with regexes for pairs and empty metadata lines.
+
+        `pair_re` must have the named groups 'key' and 'value'.
+        `empty_re` doesn't need any named groups.
+        """
         self.pair_re = re.compile(pair_re)
         if (
             "key" not in self.pair_re.groupindex
@@ -460,6 +498,20 @@ class KeyValueMetadataParser(MetadataParser):
         self.empty_re = re.compile(empty_re)
 
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
+        """Parse metadata comments for key-value pairs.
+
+        They are parsed in the reverse order of `lines` so that the contiguous
+        block of metadata comments immediately preceding a keybind isn't
+        interrupted by non-metadata comments.
+
+        `empty_re` is used to match comments that are part of that contiguous
+        block, but don't define key-value pairs.  Useful for "blank" lines
+        between key-value pairs or for comments about them in a separate line.
+
+        NOTE: duplicate keys cause MetadataParserError to be raised, although
+        the "duplicate" is actually on a line before the real duplicate due to
+        the parse order.
+        """
         comments = list(lines)
         metadata = {}
         # Reads them bottom-up, so "duplicates" are actually earlier in the file.
