@@ -221,6 +221,10 @@ class SimpleSectionHandler(SectionHandler):
 
     def __init__(self, section_header_re: str):
         self.section_header_re = re.compile(section_header_re)
+        if "name" not in self.section_header_re.groupindex:
+            raise ValueError(
+                "section header regex must have the named group 'name'"
+            )
         self._root = SectionTreeNode(None, None, None)  # type: ignore
         self.sections = [self._root]
 
@@ -262,6 +266,10 @@ class StackSectionHandler(SectionHandler):
     def __init__(self, section_header_re: str, section_footer_re: str):
         self.section_header_re = re.compile(section_header_re)
         self.section_footer_re = re.compile(section_footer_re)
+        if "name" not in self.section_header_re.groupindex:
+            raise ValueError(
+                "section header regex must have the named group 'name'"
+            )
         self._section_tree = SectionTreeNode(None, None, None)  # type: ignore
         self._section_stack = [self._section_tree]
 
@@ -320,6 +328,10 @@ class SimpleDescriptionParser(MetadataParser):
 
     def __init__(self, description_re: str):
         self.description_re = re.compile(description_re)
+        if "value" not in self.description_re.groupindex:
+            raise ValueError(
+                "description regex must have the named group 'value'"
+            )
 
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
         comments = list(lines)
@@ -339,6 +351,13 @@ class KeyValueMetadataParser(MetadataParser):
 
     def __init__(self, pair_re: str, empty_re: str):
         self.pair_re = re.compile(pair_re)
+        if (
+            "key" not in self.pair_re.groupindex
+            or "value" not in self.pair_re.groupindex
+        ):
+            raise ValueError(
+                "pair regex must have named groups 'key' and 'value'"
+            )
         self.empty_re = re.compile(empty_re)
 
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
