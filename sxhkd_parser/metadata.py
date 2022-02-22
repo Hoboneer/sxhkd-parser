@@ -195,49 +195,89 @@ def find_enclosing_section(
 
 
 class SectionHandler(ABC):
+    """Abstract base class for managing sxhkdrc sections.
+
+    Abstract methods/properties:
+        - push
+        - root
+        - current_section
+    """
+
     @abstractmethod
     def push(self, text: str, line: int) -> bool:
+        """Return whether `text` can be parsed as a section header or footer.
+
+        This should be used for delimiting sections and metadata comments.
+        """
         raise NotImplementedError
 
     def push_eof(self, last_line: int) -> None:
+        """Do clean-up actions after the input ends.
+
+        This should be called by overriding subclasses so that the root section
+        gets its `end` attribute defined.
+        """
         self.root.end = last_line
 
-    # should be the tree that the handler operates on -> it should update!
     @abstractproperty
     def root(self) -> SectionTreeNode:
+        """Return the root section."""
         raise NotImplementedError
 
     @abstractproperty
     def current_section(self) -> SectionTreeNode:
+        """Return the current section."""
         raise NotImplementedError
 
 
 @dataclass
 class RootSectionHandler(SectionHandler):
+    """Handler for a single-section sxhkdrc, where all keybinds are children of the root."""
+
     _section: SectionTreeNode
 
     def __init__(self) -> None:
         self._section = SectionTreeNode.build_root()
 
     def push(self, text: str, line: int) -> bool:
+        """Reject the input.
+
+        No new sections will be defined.
+        """
         return False
 
     @property
     def root(self) -> SectionTreeNode:
+        """Return the root section (which is the only node)."""
         return self._section
 
     @property
     def current_section(self) -> SectionTreeNode:
+        """Return the current section (which is always the root)."""
         return self._section
 
 
 @dataclass
 class SimpleSectionHandler(SectionHandler):
+    """Handler for sections one level under the root section.
+
+    Each new section is a direct child of the root and each such section ends
+    when a new section begins or EOF.
+
+    Instance variables:
+        section_header_re: the pattern to match and parse out section headers.
+        sections: the sections of the config in the order they were defined.
+    """
+
     section_header_re: Pattern[str]
     sections: List[SectionTreeNode]
     _root: SectionTreeNode = field(repr=False)
 
     def __init__(self, section_header_re: str):
+        """Create an instance with a regex for section headers.
+
+        `section_header_re` must have a named group 'name'.
+        """
         self.section_header_re = re.compile(section_header_re)
         if "name" not in self.section_header_re.groupindex:
             raise ValueError(
@@ -247,6 +287,11 @@ class SimpleSectionHandler(SectionHandler):
         self.sections = [self._root]
 
     def push(self, text: str, line: int) -> bool:
+        """Return whether `text` can be parsed as a section header.
+
+        If `section_header_re` matches `text`, it is a section header: a new
+        section is added and the previous section ended.
+        """
         m = self.section_header_re.search(text)
         if m:
             # starting a new section ends the previous one
@@ -266,21 +311,38 @@ class SimpleSectionHandler(SectionHandler):
 
     @property
     def root(self) -> SectionTreeNode:
+        """Return the root section."""
         return self._root
 
     @property
     def current_section(self) -> SectionTreeNode:
+        """Return the latest section."""
         return self.sections[-1]
 
 
 @dataclass
 class StackSectionHandler(SectionHandler):
+    """Handler for recursive sections and subsections.
+
+    This uses a stack to keep track of sections, and requires that inner
+    sections be merged before their parent sections.
+
+    Instance variables:
+        section_header_re: the pattern to match and parse out section headers.
+        section_footer_re: the pattern to match section footers.
+    """
+
     section_header_re: Pattern[str]
     section_footer_re: Pattern[str]
     _section_tree: SectionTreeNode = field(repr=False)
     _section_stack: List[SectionTreeNode] = field(repr=False)
 
     def __init__(self, section_header_re: str, section_footer_re: str):
+        """Create an instance with regexes for section headers and footers.
+
+        `section_header_re` must have a named group 'name'.
+        `section_footer_re` doesn't need any named groups.
+        """
         self.section_header_re = re.compile(section_header_re)
         self.section_footer_re = re.compile(section_footer_re)
         if "name" not in self.section_header_re.groupindex:
@@ -291,6 +353,16 @@ class StackSectionHandler(SectionHandler):
         self._section_stack = [self._section_tree]
 
     def push(self, text: str, line: int) -> bool:
+        """Return whether `text` can be parsed as a section header or footer.
+
+        If `section_header_re` matches `text`, it is a section header: a new
+        section is created and added to the stack.
+
+        If `section_footer_re` matches `text`, it is a section footer: the
+        current section's ending is defined and it is popped from the stack.
+
+        NOTE: ending a section before any have been defined raises SectionPushError.
+        """
         m = self.section_header_re.search(text)
         if m:
             name = m.group("name")
@@ -313,6 +385,11 @@ class StackSectionHandler(SectionHandler):
                 return False
 
     def push_eof(self, last_line: int) -> None:
+        """Ensure no sections have been left unclosed.
+
+        If any *have* been left open, SectionEOFError is raised.
+        Otherwise, defines the ending line number for the root section.
+        """
         if len(self._section_stack) > 1:
             raise SectionEOFError(
                 f"Got EOF while reading section '{self._section_stack[-1].name}'",
@@ -323,10 +400,12 @@ class StackSectionHandler(SectionHandler):
 
     @property
     def root(self) -> SectionTreeNode:
+        """Return the root section."""
         return self._section_tree
 
     @property
     def current_section(self) -> SectionTreeNode:
+        """Return the section at the top of the stack."""
         return self._section_stack[-1]
 
 
