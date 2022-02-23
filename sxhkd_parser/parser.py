@@ -1,3 +1,17 @@
+"""Classes and functions for hotkeys, commands, and keybinds.
+
+The utility functions expand_range and expand_sequences expand ranges such as
+a-f or 1-6, and sequences of the form {s1,s2,...,sn}, respectively.
+
+Terminology:
+    Hotkey: The sequence of chords needed to activate a command.
+    Command: The command passed to the shell after the hotkey is completed.
+    Keybind: The entity that encompasses the above.
+
+Hotkey and Command objects may be created directly, but are already done as
+part of creating Keybind objects.  The decision tree produced by sequence
+expansion can also be accessed with their respective get_tree() methods.
+"""
 from __future__ import annotations
 
 import itertools as it
@@ -35,9 +49,11 @@ from .errors import (
 
 @dataclass
 class SpanTreeNode:
-    """Node for a decision tree representing the spans of text that result from expanding sequences of the form {s1,s2,...,sn}."""
+    """Node for a decision tree representing the spans of text that result from expanding sequences of the form {s1,s2,...,sn}.
 
-    # root has value `None`
+    Note that the root node will have a `value` of `None`.
+    """
+
     value: str
     children: List[SpanTreeNode] = field(default_factory=list)
 
@@ -58,11 +74,19 @@ class SpanTreeNode:
 
     @classmethod
     def build_tree(cls, spans: List[Union[str, List[str]]]) -> SpanTreeNode:
+        """Create an instance from a list representing a decision tree.
+
+        Each element of the list represents the levels of the decision tree,
+        which may be single strings for parts of the original input that
+        weren't contained in sequences, or lists of strings for those parts
+        that were.
+        """
         root = cls(None)  # type: ignore
         cls._build_tree_rec(root, spans)
         return root
 
     def add_child(self, value: str) -> SpanTreeNode:
+        """Add a child node with the given value."""
         child = SpanTreeNode(value)
         self.children.append(child)
         return child
@@ -419,7 +443,8 @@ class KeypressTreeNode:
         - dedupe_keysym_nodes
         - dedupe_runevent_nodes
         - dedupe_replay_nodes
-    There is also `dedupe_chord_nodes`, which may be useful.
+    There is also `dedupe_chord_nodes`, which may be useful but may remove some
+    permutations.
 
     The order in which internal node types are included determines the
     grouping.  For example, the order (1) modifierset, (2) keysym results in
@@ -569,15 +594,35 @@ class KeypressTreeNode:
         self._dedupe(kind)
 
     def dedupe_modifier_nodes(self) -> None:
+        """Deduplicate internal nodes whose value has the type `KeypressTreeModifierNode`.
+
+        This merges sibling nodes with equal `value` attributes, if they are
+        both of type `KeypressTreeModifierNode`.
+        """
         self._dedupe_nodes(KeypressTreeModifierNode)
 
     def dedupe_keysym_nodes(self) -> None:
+        """Deduplicate internal nodes whose value has the type `KeypressTreeKeysymNode`.
+
+        This merges sibling nodes with equal `value` attributes, if they are
+        both of type `KeypressTreeKeysymNode`.
+        """
         self._dedupe_nodes(KeypressTreeKeysymNode)
 
     def dedupe_runevent_nodes(self) -> None:
+        """Deduplicate internal nodes whose value has the type `KeypressTreeChordRunEventNode`.
+
+        This merges sibling nodes with equal `value` attributes, if they are
+        both of type `KeypressTreeChordRunEventNode`.
+        """
         self._dedupe_nodes(KeypressTreeChordRunEventNode)
 
     def dedupe_replay_nodes(self) -> None:
+        """Deduplicate internal nodes whose value has the type `KeypressTreeReplayNode`.
+
+        This merges sibling nodes with equal `value` attributes, if they are
+        both of type `KeypressTreeReplayNode`.
+        """
         self._dedupe_nodes(KeypressTreeReplayNode)
 
     # Lots of duplication with `_dedupe(kind)`, but it's pretty much the same.
@@ -609,6 +654,14 @@ class KeypressTreeNode:
             del self.children[i]
 
     def dedupe_chord_nodes(self) -> None:
+        """Deduplicate nodes that contain `Chord` in its `value` attribute.
+
+        This merges sibling nodes with equal `value` attributes, if they are
+        both of type `Chord`.
+
+        Note that deduplicating chords may delete permutations, thereby
+        limiting its use as a decision tree.
+        """
         # No children to deduplicate.
         if not self.children:
             return
@@ -679,15 +732,17 @@ class KeypressTreeNode:
                     continue
 
                 if modset1 == modset2:
+                    # Necessary since moving subsets might make those with
+                    # equal value siblings?
                     # Move all children of n2 under n1 and remove n2.
                     for subchild in n2_node.children:
                         n1_node.add_child(subchild)
                     removed_children.append(n2_index)
                     del modset_nodes[j]
                 elif modset1 < modset2:
-                    # Keep n2, but make it a child of n1
-                    # since modset1 being a strict subset of modset2 means that
-                    # all of its modifiers must be pressed.
+                    # Keep n2, but make it a child of n1 since modset1 being a
+                    # strict subset of modset2 means that all of its modifiers
+                    # must be pressed.
                     # XXX: no good solution to this
                     #   - can't just take their union
                     n1_node.add_child(n2_node)
@@ -777,6 +832,13 @@ class _HotkeyParseMode(Enum):
 # TODO: add line and col number (how though? they're pre-expanded?)
 @dataclass
 class HotkeyToken:
+    """Token used for parsing hotkeys.
+
+    Generated by the static method Hotkey.tokenize_static_hotkey.
+
+    See Hotkey.TOKEN_SPEC for the token types.
+    """
+
     type: str
     value: str
 
@@ -784,6 +846,9 @@ class HotkeyToken:
 @dataclass
 class Hotkey:
     """The hotkey for a keybind, containing the sequence of chords needed to execute the keybind.
+
+    Call the get_tree() method to get the decision tree produced by sequence
+    expansion, with fully parsed chord sequences.
 
     Instance variables:
         raw: the unexpanded hotkey text.
@@ -833,6 +898,15 @@ class Hotkey:
     def __init__(
         self, hotkey: Union[str, List[str]], line: Optional[int] = None
     ):
+        """Create an instance with the hotkey text and the starting line number.
+
+        `hotkey` is passed straight to `expand_sequences` along with `line`,
+        and the output used to tokenize and then parse into chord permutations
+        due to sequence expansion.
+
+        If `line` is `None`, assume it starts at line 1: user code can
+        interpret it as they see fit.
+        """
         self.raw = hotkey
         self.line = line
 
@@ -852,7 +926,6 @@ class Hotkey:
         for flat_perm in flattened_permutations:
             tokens = Hotkey.tokenize_static_hotkey(flat_perm, self.line)
             noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
-            # print(flat_perm, tokens, chords, sep='\t')
             self.permutations.append(chords)
             noabort_indices.append(noabort_index)
 
@@ -1070,6 +1143,8 @@ class Hotkey:
 class Command:
     """The command for a keybind, containing the text to be executed in the shell.
 
+    Call the get_tree() method to get the decision tree produced by sequence expansion.
+
     Instance variables:
         raw: the unexpanded and unprocessed command text.
         line: the starting line number.
@@ -1086,6 +1161,15 @@ class Command:
     def __init__(
         self, command: Union[str, List[str]], line: Optional[int] = None
     ):
+        """Create an instance with the command text and the starting line number.
+
+        After some processing to strip any leading whitespace from the first
+        line of `command` and to determine whether the command is synchronous
+        or not, `command` is passed to `expand_sequences` along with `line`.
+
+        If `line` is `None`, assume it starts at line 1: user code can
+        interpret it as they see fit.
+        """
         self.line = line
         if isinstance(command, str):
             self.raw = command
@@ -1126,6 +1210,14 @@ class Command:
 
 @dataclass
 class Keybind:
+    """A hotkey and its associated command, along with any metadata.
+
+    Instance variables:
+        hotkey: the `Hotkey` object representing the keypresses to activate this keybind.
+        command: the `Command` object storing the text to be executed when the hotkey is completed.
+        metadata: the dictionary of metadata parsed from comments immediately above the keybind.
+    """
+
     hotkey: Hotkey
     command: Command
     metadata: Dict[str, Any]
@@ -1138,11 +1230,19 @@ class Keybind:
         command_start_line: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
+        """Create an instance with the the hotkey and command text.
+
+        `hotkey` and `hotkey_start_line` are directly passed to the constructor
+        for `Hotkey`, and `command` and `command_start_line` are directly
+        passed to that of `Command`.
+
+        If the hotkey and command differ in the number of cases/permutations
+        after sequence expansion occurs, ValueError is raised.
+        """
         if metadata is None:
             metadata = {}
         self.metadata = metadata
 
-        # `hotkey` and `command` should be normalised to single strings, after backslash processing at the end of lines.
         self.hotkey: Hotkey = Hotkey(hotkey, line=hotkey_start_line)
         self.command: Command = Command(command, line=command_start_line)
 
@@ -1153,4 +1253,5 @@ class Keybind:
 
     @property
     def line(self) -> Optional[int]:
+        """Return the starting line of the keybind, which is that of its hotkey."""
         return self.hotkey.line
