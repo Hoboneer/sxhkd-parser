@@ -1,6 +1,6 @@
 """Convenience functions for using the library."""
 from os import PathLike
-from typing import Iterable, List, Optional, TextIO, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, TextIO, Union, cast
 
 from .metadata import MetadataParser, NullMetadataParser, SectionHandler
 from .parser import Keybind
@@ -61,6 +61,7 @@ def read_sxhkdrc(
     lines: List[str] = []
     line_no: int = 0
     line_block_start: int
+    metadata: Dict[str, Any] = {}
     try:
         while True:
             line = f.readline()
@@ -77,8 +78,6 @@ def read_sxhkdrc(
                 comment_buf.clear()
                 continue
 
-            # TODO: add descriptions (or should it be for any metadata element?) with sequence expansion
-            #   - maybe that should be up to the user? (expand_sequences is public!)
             if line.startswith("#"):
                 # line number so keybinds can be matched to sections later
                 if section_handler is not None and section_handler.push(
@@ -87,7 +86,8 @@ def read_sxhkdrc(
                     # section handler ate it up
                     comment_block_start_line = None
                     comment_buf.clear()  # cut off any comments that could attach to a keybind
-                else:
+                # Metadata only comes from comments directly preceding the hotkey.
+                elif hotkey is None:
                     if not comment_buf:
                         assert comment_block_start_line is None
                         comment_block_start_line = line_no
@@ -111,15 +111,6 @@ def read_sxhkdrc(
                 command = lines.copy()
                 command_start_line = line_block_start
 
-                if comment_buf:
-                    metadata = metadata_parser.parse(
-                        comment_buf,
-                        start_line=cast(int, comment_block_start_line),
-                    )
-                    comment_buf.clear()
-                    comment_block_start_line = None
-                else:
-                    metadata = {}
                 keybind = Keybind(
                     hotkey,
                     command,
@@ -142,6 +133,15 @@ def read_sxhkdrc(
                 hotkey = lines.copy()
                 hotkey_start_line = line_block_start
                 lines.clear()
+                if comment_buf:
+                    metadata = metadata_parser.parse(
+                        comment_buf,
+                        start_line=cast(int, comment_block_start_line),
+                    )
+                    comment_buf.clear()
+                    comment_block_start_line = None
+                else:
+                    metadata = {}
 
     except Exception:
         raise
