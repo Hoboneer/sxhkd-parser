@@ -5,6 +5,8 @@ from typing import Iterable, List, Optional, TextIO, Union, cast
 from .metadata import MetadataParser, NullMetadataParser, SectionHandler
 from .parser import Keybind
 
+__all__ = ["read_sxhkdrc"]
+
 
 def read_sxhkdrc(
     file: Union[str, PathLike[str], TextIO],

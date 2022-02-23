@@ -46,6 +46,21 @@ from typing import (
 from .errors import MetadataParserError, SectionEOFError, SectionPushError
 from .parser import Chord, Hotkey, Keybind, SpanTreeNode, expand_sequences
 
+__all__ = [
+    # General.
+    "SectionTreeNode",
+    "find_enclosing_section",
+    # Section handlers.
+    "SectionHandler",
+    "RootSectionHandler",
+    "SimpleSectionHandler",
+    "StackSectionHandler",
+    # Metadata parsers.
+    "MetadataParser",
+    "SimpleDescriptionParser",
+    "KeyValueMetadataParser",
+]
+
 
 # TODO: should sections have metadata too?
 # Invariants:

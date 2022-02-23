@@ -1,1 +1,5 @@
-from ._package import __version__  # noqa
+from ._package import *
+from .errors import *
+from .metadata import *
+from .parser import *
+from .util import *

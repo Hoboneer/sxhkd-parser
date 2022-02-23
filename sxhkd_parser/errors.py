@@ -16,6 +16,25 @@ if TYPE_CHECKING:
         str, Tuple[_HotkeyParseMode, Callable[[HotkeyToken], None]]
     ]
 
+__all__ = [
+    "SXHKDParserError",
+    # ---
+    "SequenceParseError",
+    # ---
+    "HotkeyTokenizeError",
+    # ---
+    "HotkeyParseError",
+    "UnexpectedTokenError",
+    "NonTerminalStateExitError",
+    "InconsistentNoabortError",
+    # ---
+    "SectionHandlerError",
+    "SectionPushError",
+    "SectionEOFError",
+    # ---
+    "MetadataParserError",
+]
+
 
 class SXHKDParserError(Exception):
     """Ancestor for almost all of the exceptions in the library."""
