@@ -81,11 +81,12 @@ def read_sxhkdrc(
             #   - maybe that should be up to the user? (expand_sequences is public!)
             if line.startswith("#"):
                 # line number so keybinds can be matched to sections later
-                if section_handler is not None:
-                    if section_handler.push(line, line_no):
-                        # section handler ate it up
-                        comment_block_start_line = None
-                        comment_buf.clear()  # cut off any comments that could attach to a keybind
+                if section_handler is not None and section_handler.push(
+                    line, line_no
+                ):
+                    # section handler ate it up
+                    comment_block_start_line = None
+                    comment_buf.clear()  # cut off any comments that could attach to a keybind
                 else:
                     if not comment_buf:
                         assert comment_block_start_line is None
