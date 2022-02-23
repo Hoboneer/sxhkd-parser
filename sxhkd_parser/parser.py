@@ -60,149 +60,104 @@ __all__ = [
     "KeypressTreeModifierSetNode",
     "KeypressTreeNode",
     "KeypressTreeReplayNode",
-    "SpanTreeNode",
+    "SpanTree",
     "expand_range",
     "expand_sequences",
 ]
 
 
 @dataclass
-class SpanTreeNode:
-    """Node for a decision tree representing the spans of text that result from expanding sequences of the form {s1,s2,...,sn}.
+class SpanTree:
+    """Decision tree representing the spans of text that result from expanding sequences of the form {s1,s2,...,sn}.
 
-    Note that the root node will have a `value` of `None`.
+    An instance can be parsed from some text by passing it to
+    `expand_sequences`.
+
+    Instance variables:
+        levels: the levels of the decision tree, each of which is either a string or a list of strings.
     """
 
-    value: str
-    children: List[SpanTreeNode] = field(default_factory=list)
+    levels: List[Union[str, List[str]]]
 
-    @classmethod
-    def _build_tree_rec(
-        cls, node: SpanTreeNode, spans: List[Union[str, List[str]]]
-    ) -> None:
-        if not spans:
-            return
-        val, *new_spans = spans
-        if isinstance(val, str):
-            new_node = node.add_child(val)
-            cls._build_tree_rec(new_node, new_spans)
-        else:
-            for option in val:
-                new_node = node.add_child(option)
-                cls._build_tree_rec(new_node, new_spans)
-
-    @classmethod
-    def build_tree(cls, spans: List[Union[str, List[str]]]) -> SpanTreeNode:
+    def __init__(self, levels: List[Union[str, List[str]]]):
         """Create an instance from a list representing a decision tree.
 
         Each element of the list represents the levels of the decision tree,
         which may be single strings for parts of the original input that
         weren't contained in sequences, or lists of strings for those parts
         that were.
+
+        For sxhkdrc sequences, each node on a given level of the decision tree
+        has the same children as every other node sharing its level.
         """
-        root = cls(None)  # type: ignore
-        cls._build_tree_rec(root, spans)
-        return root
-
-    def add_child(self, value: str) -> SpanTreeNode:
-        """Add a child node with the given value."""
-        child = SpanTreeNode(value)
-        self.children.append(child)
-        return child
-
-    def _print_tree_rec(self, level: int) -> None:
-        assert level >= 0
-        if level == 0:
-            print(repr(self.value))
-        else:
-            print(f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r}")
-        for child in self.children:
-            child._print_tree_rec(level + 1)
-
-    def print_tree(self) -> None:
-        """Print the tree, rooted at this node."""
-        self._print_tree_rec(0)
-
-    def _generate_permutations_rec(self) -> List[Union[str, List[str]]]:
-        """Recursively return all permutations of the text.
-
-        Each permutation is the path from the root to a leaf.
-        (The results are recursive lists of strings or lists of its type again.???)
-        """
-        if not self.children:
-            return [self.value]
-        perms: List[Union[str, List[str]]] = []
-        for child in self.children:
-            child_perms = cast("List[str]", child._generate_permutations_rec())
-            for perm in child_perms:
-                perms.append([self.value] + [perm])
-        return perms
+        self.levels = levels
 
     @staticmethod
-    def _flatten_permutation(
-        perm: Union[str, List[str]], empty_elem_strat: str = "space"
-    ) -> str:
-        """Flatten the permutation into a single string.
-
-        This permutation should be an element of the result of
-        `SpanTreeNode._generate_permutations_rec()`.
-
-        A `SpanTreeNode` instance can be obtained by passing the text to
-        `expand_sequences(text)`.
-
-        The empty sequence element (`_') is:
-          - surrounded by spaces if `empty_elem_strat` is 'space',
-            so that it can be ignored by the hotkey tokenizer; or
-          - deleted if `empty_elem_strat` is 'delete'.
-        """
-        if isinstance(perm, str):
-            return perm
-
-        flat_perm = []
-        for elem in perm:
-            if isinstance(elem, str):
-                flat_perm.append(elem)
-            else:
-                # mypy warns unreachable but `perm` is a recursive list of strings.
-                flat_perm.append(SpanTreeNode._flatten_permutation(elem, empty_elem_strat))  # type: ignore
-
-        joined = ""
-        for elem in flat_perm:
-            if elem == "_":
-                if empty_elem_strat == "space":
-                    joined += " " + elem + " "
-                elif empty_elem_strat == "delete":
-                    pass
-                else:
-                    raise RuntimeError(
-                        f"must be 'space' or 'delete', got {empty_elem_strat=}"
-                    )
-            else:
-                joined += elem
-        return joined
-
-    def generate_permutations(
-        self, empty_elem_strat: str = "space"
+    def _generate_permutations_rec(
+        curr_levels: List[Union[str, List[str]]]
     ) -> List[str]:
-        """Return all the permutations of the text, rooted at this node.
+        level, *rest = curr_levels
+        # Whether it's the last level or not.
+        if not rest:
+            if isinstance(level, str):
+                return [level]
+            else:
+                out = []
+                for choice in level:
+                    # The empty sequence element needs to still be in the list
+                    # so that the branches aren't messed up.
+                    if choice == "_":
+                        out.append("")
+                    else:
+                        out.append(choice)
+                return out
+        perms: List[str] = []
+        if isinstance(level, str):
+            perms.extend(
+                level + subperm
+                for subperm in SpanTree._generate_permutations_rec(rest)
+            )
+        else:
+            assert isinstance(level, list)
+            for choice in level:
+                # The empty sequence element needs to still be in the list
+                # so that the branches aren't messed up.
+                if choice == "_":
+                    choice = ""
+                perms.extend(
+                    choice + subperm
+                    for subperm in SpanTree._generate_permutations_rec(rest)
+                )
+        return perms
+
+    def generate_permutations(self) -> List[str]:
+        """Return all the permutations of the text in order.
 
         Each permutation is the path from the root to a leaf.
-
-        `empty_elem_strat` determines what happens to the empty
-        sequence element when flattening each permutation into
-        single strings.
-        The empty sequence element (`_') is:
-          - surrounded by spaces if `empty_elem_strat` is 'space',
-            so that it can be ignored by the hotkey tokenizer; or
-          - deleted if `empty_elem_strat` is 'delete'.
+        The permutations are ordered such that the leftmost paths come first.
         """
-        unflattened_permutations = self._generate_permutations_rec()
+        return SpanTree._generate_permutations_rec(self.levels)
 
-        flattened_permutations = [
-            SpanTreeNode._flatten_permutation(perm, empty_elem_strat)
-            for perm in unflattened_permutations
-        ]
-        return flattened_permutations
+    @staticmethod
+    def _print_tree_rec(
+        curr_levels: List[Union[str, List[str]]], level: int
+    ) -> None:
+        if not curr_levels:
+            return
+        curr_level, *rest = curr_levels
+        if isinstance(curr_level, str):
+            print(f"{' ' * (level)}└{'─' * (level)} {curr_level!r}")
+            SpanTree._print_tree_rec(rest, level + 1)
+        else:
+            assert isinstance(curr_level, list)
+            for choice in curr_level:
+                print(f"{' ' * (level)}└{'─' * (level)} {choice!r}")
+                SpanTree._print_tree_rec(rest, level + 1)
+
+    def print_tree(self) -> None:
+        """Print the tree."""
+        print(None)
+        self._print_tree_rec(self.levels, 1)
 
 
 def expand_range(maybe_range: str) -> Union[List[str], str]:
@@ -248,7 +203,7 @@ def expand_sequences(
     text: Union[str, Iterable[str]],
     start_line: int = 1,
     column_shift: int = 0,
-) -> SpanTreeNode:
+) -> SpanTree:
     """Expand sequences of the form {s1,s2,...,sn} and return its decision tree.
 
     Allows `text` to be an iterable for each line of the text.
@@ -353,7 +308,7 @@ def expand_sequences(
     if spans[-1] == "":
         spans.pop()
 
-    return SpanTreeNode.build_tree(spans)
+    return SpanTree(spans)
 
 
 class ChordRunEvent(Enum):
@@ -933,16 +888,10 @@ class Hotkey:
         # since it's at line 1 of the input anyway.
         root = expand_sequences(hotkey, start_line=self.line or 1)
 
-        flattened_permutations = list(
-            it.chain.from_iterable(
-                child.generate_permutations() for child in root.children
-            )
-        )
-
         self.permutations = []
         noabort_indices: List[Optional[int]] = []
 
-        for flat_perm in flattened_permutations:
+        for flat_perm in root.generate_permutations():
             tokens = Hotkey.tokenize_static_hotkey(flat_perm, self.line)
             noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
             self.permutations.append(chords)
@@ -1173,7 +1122,7 @@ class Command:
 
     raw: Union[str, List[str]]
     line: Optional[int]
-    _span_tree: SpanTreeNode = field(repr=False)
+    _span_tree: SpanTree = field(repr=False)
     permutations: List[str] = field(repr=False)
     synchronous: bool
 
@@ -1215,14 +1164,9 @@ class Command:
             command, start_line=line or 1, column_shift=col_shift
         )
 
-        self.permutations = list(
-            it.chain.from_iterable(
-                child.generate_permutations(empty_elem_strat="delete")
-                for child in root.children
-            )
-        )
+        self.permutations = root.generate_permutations()
 
-    def get_tree(self) -> SpanTreeNode:
+    def get_tree(self) -> SpanTree:
         """Return the decision tree resulting from sequence expansion."""
         return self._span_tree
 

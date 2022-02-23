@@ -28,7 +28,6 @@ Metadata classes:
 """
 from __future__ import annotations
 
-import itertools as it
 import re
 from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass, field
@@ -44,7 +43,7 @@ from typing import (
 )
 
 from .errors import MetadataParserError, SectionEOFError, SectionPushError
-from .parser import Chord, Hotkey, Keybind, SpanTreeNode, expand_sequences
+from .parser import Chord, Hotkey, Keybind, SpanTree, expand_sequences
 
 __all__ = [
     # General.
@@ -123,14 +122,9 @@ class SectionTreeNode:
                 print(msg)
                 return
             else:
-                assert isinstance(expanded, SpanTreeNode)
+                assert isinstance(expanded, SpanTree)
                 # Try to print each permutation separately.
-                permutations = list(
-                    it.chain.from_iterable(
-                        child.generate_permutations(empty_elem_strat="delete")
-                        for child in expanded.children
-                    )
-                )
+                permutations = expanded.generate_permutations()
                 if len(permutations) == len(keybind.hotkey.permutations):
                     prefix = msg
                     for hotkey_perm, desc_perm in zip(
