@@ -1,3 +1,4 @@
+# mypy: implicit-reexport
 from ._package import *
 from .errors import *
 from .metadata import *
