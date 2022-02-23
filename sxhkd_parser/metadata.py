@@ -1,3 +1,31 @@
+"""Classes for managing sections and metadata in config files.
+
+These classes parse sections and metadata found in the comments of sxhkdrc
+files, in which different styles of formatting are handled specially.
+
+As for sections, they may be "simple" in which there are no subsections, or
+represent a "stack" in which there *are* subsections, which require that they
+are completely enclosed by their parent sections.  There may also be *no*
+sections below the root, in which no comments create new sections.
+
+With regard to metadata, there may only be descriptions on single lines
+("simple") or they may be key-value pairs across multiple lines ("key-value").
+
+Many of them will also take regular expressions to configure the recognition of
+sections and metadata.
+
+Section classes:
+    SectionHandler: abstract base class.
+    RootSectionHandler: no new sections and places all keybinds in the root section.
+    SimpleSectionHandler: flat sections.
+    StackSectionHandler: subsections.
+
+Metadata classes:
+    MetadataParser: abstract base class.
+    NullMetadataParser: no-op for all operations.
+    SimpleDescriptionParser: description line immediately above the keybind.
+    KeyValueMetadataParser: key-value pairs above the keybind.
+"""
 from __future__ import annotations
 
 import itertools as it
