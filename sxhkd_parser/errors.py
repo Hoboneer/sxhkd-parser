@@ -27,6 +27,7 @@ __all__ = [
     "UnexpectedTokenError",
     "NonTerminalStateExitError",
     "InconsistentNoabortError",
+    "DuplicateModifierError",
     # ---
     "SectionHandlerError",
     "SectionPushError",
@@ -139,6 +140,17 @@ class InconsistentNoabortError(HotkeyParseError):
         self.perms = perms
         self.indices = indices
         self.index_counts = index_counts
+
+
+class DuplicateModifierError(HotkeyParseError):
+    """A modifier was repeated in the same chord."""
+
+    def __init__(self, message: str, modifier: str):
+        self.message = message
+        self.modifier = modifier
+
+    def __str__(self) -> str:
+        return self.message
 
 
 class SectionHandlerError(SXHKDParserError):

@@ -39,6 +39,7 @@ from typing import (
 )
 
 from .errors import (
+    DuplicateModifierError,
     HotkeyTokenizeError,
     InconsistentNoabortError,
     NonTerminalStateExitError,
@@ -883,7 +884,11 @@ class Hotkey:
 
         for flat_perm in root.generate_permutations():
             tokens = Hotkey.tokenize_static_hotkey(flat_perm, self.line)
-            noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
+            try:
+                noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
+            except DuplicateModifierError as e:
+                e.message = f"{e.message} in '{flat_perm}'"
+                raise
             self.permutations.append(chords)
             noabort_indices.append(noabort_index)
 
@@ -981,6 +986,7 @@ class Hotkey:
 
         # Temporary data for the current chord.
         curr_modifiers: List[str] = []
+        seen_modifiers: Set[str] = set()
         curr_keysym: Optional[str] = None
         curr_run_event: Optional[ChordRunEvent] = None
         curr_replay: bool = False
@@ -988,11 +994,17 @@ class Hotkey:
         def reset_temp_state() -> None:
             nonlocal curr_modifiers, curr_keysym, curr_run_event, curr_replay
             curr_modifiers = []
+            seen_modifiers.clear()
             curr_keysym = None
             curr_run_event = None
             curr_replay = False
 
         def MODIFIER_NAME_on_MODIFIER(tok: HotkeyToken) -> None:
+            if tok.value in seen_modifiers:
+                raise DuplicateModifierError(
+                    f"Duplicate modifier '{tok.value}'", modifier=tok.value
+                )
+            seen_modifiers.add(tok.value)
             curr_modifiers.append(tok.value)
 
         # We know that getting a keysym means completing a chord.
