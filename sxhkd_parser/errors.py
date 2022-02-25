@@ -21,8 +21,8 @@ __all__ = [
     # ---
     "SequenceParseError",
     # ---
+    "HotkeyError",
     "HotkeyTokenizeError",
-    # ---
     "HotkeyParseError",
     "UnexpectedTokenError",
     "NonTerminalStateExitError",
@@ -69,7 +69,13 @@ class SequenceParseError(SXHKDParserError):
             return self.message
 
 
-class HotkeyTokenizeError(SXHKDParserError):
+class HotkeyError(SXHKDParserError):
+    """Base class for errors related to `Hotkey` objects."""
+
+    pass
+
+
+class HotkeyTokenizeError(HotkeyError):
     """An invalid character was passed to the tokenizer."""
 
     def __init__(
@@ -87,7 +93,7 @@ class HotkeyTokenizeError(SXHKDParserError):
             return self.message
 
 
-class HotkeyParseError(SXHKDParserError):
+class HotkeyParseError(HotkeyError):
     """Base class for issues related to parsing hotkeys into Hotkey objects."""
 
     pass
