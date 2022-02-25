@@ -330,12 +330,14 @@ class Chord:
         keysym: the keysym name, given by the output of `xev -event keyboard`.
         run_event: whether the chord (or whole command? TODO) runs on key-press or key-release.
         replay: whether the captured event will be replayed for the other clients.
+        noabort: whether the ':' was used to indicate non-abort at chain-tail.
     """
 
     modifiers: FrozenSet[str]
     keysym: str
     run_event: ChordRunEvent
     replay: bool
+    noabort: bool
 
     # XXX: are `@' and `~' significant enough to cause differing keybinds?
     # answer: yes (https://github.com/baskerville/sxhkd/issues/198)
@@ -345,6 +347,7 @@ class Chord:
         keysym: str,
         run_event: Optional[ChordRunEvent] = None,
         replay: bool = False,
+        noabort: bool = False,
     ):
         self.modifiers = frozenset(modifiers)
         self.keysym = keysym
@@ -352,6 +355,7 @@ class Chord:
             run_event = ChordRunEvent.KEYPRESS
         self.run_event = run_event
         self.replay = replay
+        self.noabort = noabort
 
 
 # not really a "node", but a value of a node
@@ -1034,6 +1038,7 @@ class Hotkey:
             if noabort_index is None:
                 # this runs after receiving a keysym, which creates a chord
                 noabort_index = len(chords) - 1
+                chords[-1].noabort = True
             else:
                 raise UnexpectedTokenError(
                     "Got a second COLON token",
