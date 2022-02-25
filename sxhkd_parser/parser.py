@@ -39,6 +39,7 @@ from typing import (
 )
 
 from .errors import (
+    DuplicateChordPermutationError,
     DuplicateModifierError,
     HotkeyTokenizeError,
     InconsistentNoabortError,
@@ -884,34 +885,53 @@ class Hotkey:
         root = expand_sequences(hotkey, start_line=self.line or 1)
 
         self.permutations = []
-        noabort_indices: List[Optional[int]] = []
+        seen_chords: Dict[Tuple[Chord, ...], Tuple[int, Optional[int]]] = {}
+        prev_perm: List[Chord]
 
-        for flat_perm in root.generate_permutations():
+        for i, flat_perm in enumerate(root.generate_permutations()):
             tokens = Hotkey.tokenize_static_hotkey(flat_perm, self.line)
             try:
                 noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
             except DuplicateModifierError as e:
                 e.message = f"{e.message} in '{flat_perm}'"
                 raise
-            self.permutations.append(chords)
-            noabort_indices.append(noabort_index)
+            if i == 0:
+                prev_perm = chords
+                self.noabort_index = noabort_index
+                seen_chords[tuple(chords)] = (i, noabort_index)
+                self.permutations.append(chords)
+                continue
 
-        unique_indices = set(noabort_indices)
-        if len(unique_indices) > 1:
-            index_counts = dict(
-                sorted(
-                    ((i, noabort_indices.count(i)) for i in unique_indices),
-                    key=lambda x: x[1],
+            if noabort_index != self.noabort_index:
+                if isinstance(self.raw, str):
+                    raw_hotkey = self.raw
+                else:
+                    raw_hotkey = " ".join(self.raw)
+                hotkey_str1 = Hotkey.static_hotkey_str(
+                    prev_perm, self.noabort_index
                 )
-            )
-            raise InconsistentNoabortError(
-                f"Noabort indicated in different places among permutations of '{self.raw if isinstance(self.raw, str) else ' '.join(self.raw)}' with index count: {index_counts}",
-                perms=self.permutations,
-                indices=noabort_indices,
-                index_counts=index_counts,
-            )
-        assert len(unique_indices) == 1
-        self.noabort_index = unique_indices.pop()
+                hotkey_str2 = Hotkey.static_hotkey_str(chords, noabort_index)
+                raise InconsistentNoabortError(
+                    f"Noabort indicated in different places among permutations for '{raw_hotkey}': '{hotkey_str1}' vs '{hotkey_str2}'",
+                    perm1=prev_perm,
+                    index1=self.noabort_index,
+                    perm2=chords,
+                    index2=noabort_index,
+                    line=line,
+                )
+
+            if tuple(chords) in seen_chords:
+                assert noabort_index == seen_chords[tuple(chords)][1]
+                raise DuplicateChordPermutationError(
+                    f"Duplicate permutation '{Hotkey.static_hotkey_str(chords, noabort_index)}'",
+                    dup_perm=tuple(chords),
+                    perm1=(i, noabort_index),
+                    perm2=seen_chords[tuple(chords)],
+                    line=line,
+                )
+            seen_chords[tuple(chords)] = (i, noabort_index)
+            self.permutations.append(chords)
+            prev_perm = chords
 
     @property
     def noabort(self) -> bool:

@@ -6,7 +6,16 @@ small in scope.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 if TYPE_CHECKING:
     from .metadata import SectionTreeNode
@@ -28,6 +37,7 @@ __all__ = [
     "NonTerminalStateExitError",
     "InconsistentNoabortError",
     "DuplicateModifierError",
+    "DuplicateChordPermutationError",
     # ---
     "SectionHandlerError",
     "SectionPushError",
@@ -132,14 +142,24 @@ class InconsistentNoabortError(HotkeyParseError):
     def __init__(
         self,
         message: str,
-        perms: List[List[Chord]],
-        indices: List[Optional[int]],
-        index_counts: Dict[Optional[int], int],
+        perm1: List[Chord],
+        perm2: List[Chord],
+        index1: Optional[int],
+        index2: Optional[int],
+        line: Optional[int] = None,
     ):
-        super().__init__(message)
-        self.perms = perms
-        self.indices = indices
-        self.index_counts = index_counts
+        self.message = message
+        self.perm1 = perm1
+        self.perm2 = perm2
+        self.index1 = index1
+        self.index2 = index2
+        self.line = line
+
+    def __str__(self) -> str:
+        if self.line is not None:
+            return f"{self.line}: {self.message}"
+        else:
+            return self.message
 
 
 class DuplicateModifierError(HotkeyParseError):
@@ -151,6 +171,30 @@ class DuplicateModifierError(HotkeyParseError):
 
     def __str__(self) -> str:
         return self.message
+
+
+class DuplicateChordPermutationError(HotkeyError):
+    """A chord permutation was a duplicate of another."""
+
+    def __init__(
+        self,
+        message: str,
+        dup_perm: Sequence[Chord],
+        perm1: Tuple[int, Optional[int]],
+        perm2: Tuple[int, Optional[int]],
+        line: Optional[int] = None,
+    ):
+        self.message = message
+        self.dup_perm = dup_perm
+        self.index_1, self.noabort_index_1 = perm1
+        self.index_2, self.noabort_index_2 = perm2
+        self.line = line
+
+    def __str__(self) -> str:
+        if self.line is not None:
+            return f"{self.line}: {self.message}"
+        else:
+            return self.message
 
 
 class SectionHandlerError(SXHKDParserError):
