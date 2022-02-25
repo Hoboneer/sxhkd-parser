@@ -56,7 +56,6 @@ __all__ = [
     "KeypressTreeChordRunEventNode",
     "KeypressTreeInternalNode",
     "KeypressTreeKeysymNode",
-    "KeypressTreeModifierNode",
     "KeypressTreeModifierSetNode",
     "KeypressTreeNode",
     "KeypressTreeReplayNode",
@@ -326,13 +325,13 @@ class Chord:
     """Data object representing a key-chord, which is part of a `Hotkey`.
 
     Instance variables:
-        modifiers: the sorted tuple of modifiers that must precede a chord.
+        modifiers: the set of modifiers that must precede a chord.
         keysym: the keysym name, given by the output of `xev -event keyboard`.
         run_event: whether the chord (or whole command? TODO) runs on key-press or key-release.
         replay: whether the captured event will be replayed for the other clients.
     """
 
-    modifiers: Tuple[str, ...]
+    modifiers: FrozenSet[str]
     keysym: str
     run_event: ChordRunEvent
     replay: bool
@@ -346,7 +345,7 @@ class Chord:
         run_event: Optional[ChordRunEvent] = None,
         replay: bool = False,
     ):
-        self.modifiers = tuple(modifiers)
+        self.modifiers = frozenset(modifiers)
         self.keysym = keysym
         if run_event is None:
             run_event = ChordRunEvent.KEYPRESS
@@ -355,11 +354,6 @@ class Chord:
 
 
 # not really a "node", but a value of a node
-@dataclass
-class KeypressTreeModifierNode:
-    value: str
-
-
 @dataclass
 class KeypressTreeModifierSetNode:
     value: FrozenSet[str]
@@ -381,7 +375,6 @@ class KeypressTreeReplayNode:
 
 
 KeypressTreeInternalNode = Union[
-    KeypressTreeModifierNode,
     KeypressTreeModifierSetNode,
     KeypressTreeKeysymNode,
     KeypressTreeChordRunEventNode,
@@ -398,21 +391,18 @@ class KeypressTreeNode:
 
     It has internal nodes with names following the pattern `KeypressTree*Node` to group chords
     that share a common feature:
-        - KeypressTreeModifierNode: modifiers (but order matters)
         - KeypressTreeModifierSetNode: *sets* of modifiers, so order doesn't matter (matches behaviour of sxhkd)
         - KeypressTreeKeysymNode: keysym
         - KeypressTreeChordRunEventNode: run on key-press or key-release
         - KeypressTreeReplayNode: whether to replay event to other clients
 
     Internal nodes must be manually included with their respective `include_*_nodes` method:
-        - include_modifier_nodes
         - include_modifierset_nodes
         - include_keysym_nodes
         - include_runevent_nodes
         - include_replay_nodes
 
     They can be deduplicated by calling their respective `dedupe_*_nodes` method:
-        - dedupe_modifier_nodes
         - dedupe_modifierset_nodes
         - dedupe_keysym_nodes
         - dedupe_runevent_nodes
@@ -936,7 +926,9 @@ class Hotkey:
         """
         hotkey = ""
         for i, chord in enumerate(chain):
-            hotkey += " + ".join(it.chain(chord.modifiers, [chord.keysym]))
+            hotkey += " + ".join(
+                it.chain(sorted(chord.modifiers), [chord.keysym])
+            )
             if noabort_index is not None and i == noabort_index:
                 hotkey += ": "
             elif i == len(chain) - 1:
@@ -1007,8 +999,6 @@ class Hotkey:
         def on_KEYSYM(tok: HotkeyToken) -> None:
             nonlocal curr_keysym
             curr_keysym = tok.value
-            # normalise them
-            curr_modifiers.sort()
             chords.append(
                 Chord(
                     curr_modifiers,
