@@ -19,7 +19,7 @@ from typing import (
 
 if TYPE_CHECKING:
     from .metadata import SectionTreeNode
-    from .parser import Chord, HotkeyToken, _HotkeyParseMode
+    from .parser import Chord, HotkeyToken, KeypressTreeNode, _HotkeyParseMode
 
     TransitionTable = Dict[
         str, Tuple[_HotkeyParseMode, Callable[[HotkeyToken], None]]
@@ -38,6 +38,7 @@ __all__ = [
     "InconsistentNoabortError",
     "DuplicateModifierError",
     "DuplicateChordPermutationError",
+    "ConflictingChainPrefixError",
     # ---
     "SectionHandlerError",
     "SectionPushError",
@@ -188,6 +189,28 @@ class DuplicateChordPermutationError(HotkeyError):
         self.dup_perm = dup_perm
         self.index_1, self.noabort_index_1 = perm1
         self.index_2, self.noabort_index_2 = perm2
+        self.line = line
+
+    def __str__(self) -> str:
+        if self.line is not None:
+            return f"{self.line}: {self.message}"
+        else:
+            return self.message
+
+
+class ConflictingChainPrefixError(HotkeyError):
+    """An entire permutation of a hotkey was a prefix of another."""
+
+    def __init__(
+        self,
+        message: str,
+        chain_prefix: KeypressTreeNode,
+        conflicts: List[KeypressTreeNode],
+        line: Optional[int] = None,
+    ):
+        self.message = message
+        self.chain_prefix = chain_prefix
+        self.conflicts = conflicts
         self.line = line
 
     def __str__(self) -> str:

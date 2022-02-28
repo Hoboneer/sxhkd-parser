@@ -39,6 +39,7 @@ from typing import (
 )
 
 from .errors import (
+    ConflictingChainPrefixError,
     DuplicateChordPermutationError,
     DuplicateModifierError,
     HotkeyTokenizeError,
@@ -926,6 +927,7 @@ class Hotkey:
         hotkey: Union[str, List[str]],
         line: Optional[int] = None,
         check_duplicate_permutations: bool = True,
+        check_conflicting_permutations: bool = True,
     ):
         """Create an instance with the hotkey text and the starting line number.
 
@@ -991,6 +993,36 @@ class Hotkey:
             seen_chords[tuple(chords)] = (i, noabort_index)
             self.permutations.append(chords)
             prev_perm = chords
+
+        if check_conflicting_permutations:
+            tree = self.get_tree(["modifierset"])
+            tree.dedupe_chord_nodes()
+            for (
+                prefix,
+                conflicts,
+            ) in tree.find_conflicting_chain_prefixes():
+                conflicts_str = []
+                for conflict in conflicts:
+                    assert conflict.hotkey is not None
+                    assert conflict.permutation_index is not None
+                    chords = self.permutations[conflict.permutation_index]
+                    hk_str = Hotkey.static_hotkey_str(
+                        chords, self.noabort_index
+                    )
+                    conflicts_str.append(f"'{hk_str}'")
+
+                assert prefix.permutation_index is not None
+                chords = self.permutations[prefix.permutation_index]
+                chain_hk_str = Hotkey.static_hotkey_str(
+                    chords, self.noabort_index
+                )
+                # Fail on the first conflict.
+                raise ConflictingChainPrefixError(
+                    f"'{chain_hk_str}' conflicts with {', '.join(conflicts_str)}",
+                    chain_prefix=prefix,
+                    conflicts=conflicts,
+                    line=line,
+                )
 
     @property
     def noabort(self) -> bool:
