@@ -363,24 +363,32 @@ class Chord:
         self.noabort = noabort
 
 
-# not really a "node", but a value of a node
+# Not really a "node", but a value of a node.
 @dataclass
 class KeypressTreeModifierSetNode:
+    """Value of a `Chord`'s `modifiers` attribute for the `value` of `KeypressTreeNode`."""
+
     value: FrozenSet[str]
 
 
 @dataclass
 class KeypressTreeKeysymNode:
+    """Value of a `Chord`'s `keysym` attribute for the `value` of `KeypressTreeNode`."""
+
     value: str
 
 
 @dataclass
 class KeypressTreeChordRunEventNode:
+    """Value of a `Chord`'s `run_event` attribute for the `value` of `KeypressTreeNode`."""
+
     value: ChordRunEvent
 
 
 @dataclass
 class KeypressTreeReplayNode:
+    """Value of a `Chord`'s `replay` attribute for the `value` of `KeypressTreeNode`."""
+
     value: bool
 
 
