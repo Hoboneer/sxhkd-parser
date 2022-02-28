@@ -56,6 +56,7 @@ __all__ = [
     "StackSectionHandler",
     # Metadata parsers.
     "MetadataParser",
+    "NullMetadataParser",
     "SimpleDescriptionParser",
     "KeyValueMetadataParser",
 ]
