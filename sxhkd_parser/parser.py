@@ -922,7 +922,10 @@ class Hotkey:
     noabort_index: Optional[int]
 
     def __init__(
-        self, hotkey: Union[str, List[str]], line: Optional[int] = None
+        self,
+        hotkey: Union[str, List[str]],
+        line: Optional[int] = None,
+        check_duplicate_permutations: bool = True,
     ):
         """Create an instance with the hotkey text and the starting line number.
 
@@ -976,7 +979,7 @@ class Hotkey:
                     line=line,
                 )
 
-            if tuple(chords) in seen_chords:
+            if check_duplicate_permutations and tuple(chords) in seen_chords:
                 assert noabort_index == seen_chords[tuple(chords)][1]
                 raise DuplicateChordPermutationError(
                     f"Duplicate permutation '{Hotkey.static_hotkey_str(chords, noabort_index)}'",
@@ -1281,6 +1284,7 @@ class Keybind:
         hotkey_start_line: Optional[int] = None,
         command_start_line: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        hotkey_errors: Optional[Mapping[str, bool]] = None,
     ):
         """Create an instance with the the hotkey and command text.
 
@@ -1293,9 +1297,15 @@ class Keybind:
         """
         if metadata is None:
             metadata = {}
+        if hotkey_errors is None:
+            hotkey_errors = {}
         self.metadata = metadata
 
-        self.hotkey: Hotkey = Hotkey(hotkey, line=hotkey_start_line)
+        self.hotkey: Hotkey = Hotkey(
+            hotkey,
+            line=hotkey_start_line,
+            **{f"check_{k}": v for k, v in hotkey_errors.items()},
+        )
         self.command: Command = Command(command, line=command_start_line)
 
         if len(self.hotkey.permutations) != len(self.command.permutations):
