@@ -14,6 +14,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Tuple,
 )
 
@@ -39,6 +40,7 @@ __all__ = [
     "DuplicateModifierError",
     "DuplicateChordPermutationError",
     "ConflictingChainPrefixError",
+    "PossiblyInvalidKeysyms",
     # ---
     "SectionHandlerError",
     "SectionPushError",
@@ -211,6 +213,33 @@ class ConflictingChainPrefixError(HotkeyError):
         self.message = message
         self.chain_prefix = chain_prefix
         self.conflicts = conflicts
+        self.line = line
+
+    def __str__(self) -> str:
+        if self.line is not None:
+            return f"{self.line}: {self.message}"
+        else:
+            return self.message
+
+
+class PossiblyInvalidKeysyms(HotkeyError):
+    """Possibly invalid keysyms were found in a hotkey.
+
+    Based on the keysyms found in X11 include files `keysymdef.h` and
+    `XF86keysym.h` from Debian Bullseye's `x11proto-dev` package.
+
+    There may be non-standard keysyms that people may want to use, so this
+    shouldn't be fatal by default.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        keysyms: Set[str],
+        line: Optional[int] = None,
+    ):
+        self.message = message
+        self.keysyms = keysyms
         self.line = line
 
     def __str__(self) -> str:

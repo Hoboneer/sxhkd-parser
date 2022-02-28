@@ -45,9 +45,11 @@ from .errors import (
     HotkeyTokenizeError,
     InconsistentNoabortError,
     NonTerminalStateExitError,
+    PossiblyInvalidKeysyms,
     SequenceParseError,
     UnexpectedTokenError,
 )
+from .keysyms import KEYSYMS
 
 __all__ = [
     "Chord",
@@ -928,6 +930,7 @@ class Hotkey:
         line: Optional[int] = None,
         check_duplicate_permutations: bool = True,
         check_conflicting_permutations: bool = True,
+        check_maybe_invalid_keysyms: bool = False,
     ):
         """Create an instance with the hotkey text and the starting line number.
 
@@ -1021,6 +1024,20 @@ class Hotkey:
                     f"'{chain_hk_str}' conflicts with {', '.join(conflicts_str)}",
                     chain_prefix=prefix,
                     conflicts=conflicts,
+                    line=line,
+                )
+
+        if check_maybe_invalid_keysyms:
+            maybe_invalid_keysyms = set()
+            for perm in self.permutations:
+                for chord in perm:
+                    if chord.keysym not in KEYSYMS:
+                        maybe_invalid_keysyms.add(chord.keysym)
+            if maybe_invalid_keysyms:
+                keysym_str = " ,".join(f"'{k}'" for k in maybe_invalid_keysyms)
+                raise PossiblyInvalidKeysyms(
+                    f"Possibly invalid keysyms: {keysym_str}",
+                    keysyms=maybe_invalid_keysyms,
                     line=line,
                 )
 
