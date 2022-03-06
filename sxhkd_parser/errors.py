@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 __all__ = [
     "SXHKDParserError",
     # ---
+    "KeybindError",
+    "InconsistentKeybindCasesError",
+    # ---
     "SequenceParseError",
     # ---
     "HotkeyError",
@@ -54,6 +57,35 @@ class SXHKDParserError(Exception):
     """Ancestor for almost all of the exceptions in the library."""
 
     pass
+
+
+class KeybindError(SXHKDParserError):
+    """Base class for errors related to `Keybind` objects."""
+
+    pass
+
+
+class InconsistentKeybindCasesError(KeybindError):
+    """A keybind had an inconsistent number of cases."""
+
+    def __init__(
+        self,
+        message: str,
+        hotkey_cases: int,
+        command_cases: int,
+        line: Optional[int] = None,
+    ):
+        super().__init__(message)
+        self.message = message
+        self.hotkey_cases = hotkey_cases
+        self.command_cases = command_cases
+        self.line = line
+
+    def __str__(self) -> str:
+        if self.line is not None:
+            return f"{self.line}: {self.message}"
+        else:
+            return self.message
 
 
 class SequenceParseError(SXHKDParserError):

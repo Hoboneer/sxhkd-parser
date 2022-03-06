@@ -43,6 +43,7 @@ from .errors import (
     DuplicateChordPermutationError,
     DuplicateModifierError,
     HotkeyTokenizeError,
+    InconsistentKeybindCasesError,
     InconsistentNoabortError,
     NonTerminalStateExitError,
     PossiblyInvalidKeysyms,
@@ -1350,7 +1351,7 @@ class Keybind:
         passed to that of `Command`.
 
         If the hotkey and command differ in the number of cases/permutations
-        after sequence expansion occurs, ValueError is raised.
+        after sequence expansion occurs, InconsistentKeybindCasesError is raised.
         """
         if metadata is None:
             metadata = {}
@@ -1365,9 +1366,14 @@ class Keybind:
         )
         self.command: Command = Command(command, line=command_start_line)
 
-        if len(self.hotkey.permutations) != len(self.command.permutations):
-            raise ValueError(
-                f"inconsistent number of cases: hotkey-cases={len(self.hotkey.permutations)}, command-cases={len(self.command.permutations)}"
+        hotkey_cases = len(self.hotkey.permutations)
+        command_cases = len(self.command.permutations)
+        if hotkey_cases != command_cases:
+            raise InconsistentKeybindCasesError(
+                f"Inconsistent number of cases: hotkey-cases={hotkey_cases}, command-cases={command_cases}",
+                hotkey_cases=hotkey_cases,
+                command_cases=command_cases,
+                line=hotkey_start_line,
             )
 
     @property
