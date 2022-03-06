@@ -37,6 +37,7 @@ from typing import (
     Union,
     cast,
 )
+from weakref import ProxyType, proxy
 
 from .errors import (
     ConflictingChainPrefixError,
@@ -430,7 +431,7 @@ class KeypressTreeNode:
     # Both are non-None when this (chord) node ends a permutation.
     permutation_index: Optional[int]
     # Reference to the hotkey that this permutation comes from.
-    hotkey: Optional[Hotkey]
+    hotkey: Optional[ProxyType[Hotkey]]
 
     def __init__(self, value: Union[Chord, KeypressTreeInternalNode]):
         self.value = value
@@ -729,7 +730,7 @@ class HotkeyTree:
             new_node = new_node.add_child(chord)
 
         new_node.permutation_index = index
-        new_node.hotkey = hotkey
+        new_node.hotkey = proxy(hotkey)
         return new_node
 
     @staticmethod
