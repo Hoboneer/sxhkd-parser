@@ -934,6 +934,7 @@ class Hotkey:
     line: Optional[int]
     permutations: List[List[Chord]] = field(repr=False)
     noabort_index: Optional[int]
+    keybind: Optional[ProxyType[Keybind]]
 
     def __init__(
         self,
@@ -954,6 +955,8 @@ class Hotkey:
         """
         self.raw = hotkey
         self.line = line
+        # To be set by `Keybind` constructor.
+        self.keybind = None
 
         # It's okay if the error messages say it's at line 1:
         # since it's at line 1 of the input anyway.
@@ -1368,6 +1371,7 @@ class Keybind:
             line=hotkey_start_line,
             **{f"check_{k}": v for k, v in hotkey_errors.items()},
         )
+        self.hotkey.keybind = proxy(self)
         self.command: Command = Command(command, line=command_start_line)
 
         hotkey_cases = len(self.hotkey.permutations)
