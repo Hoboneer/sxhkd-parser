@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from signal import SIGUSR1, signal
+from signal import SIGUSR1, SIGUSR2, signal
 from typing import Any, FrozenSet, List, Optional, cast
 
 from ..errors import SXHKDParserError
@@ -170,7 +170,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     """
     parser = argparse.ArgumentParser(
         get_command_name(__file__),
-        description="Tail the status fifo and output the current sxhkd mode until exit.  Needs only the H*, B*, and E* fifo messages.",
+        description="Tail the status fifo and output the current sxhkd mode until exit.  Needs only the H*, B*, and E* fifo messages.  Send SIGUSR1 to reload config and SIGUSR2 to print the current mode.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
     )
@@ -211,7 +211,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             do_close = True
 
         prev_hotkey_str: Optional[str] = None
-        print("normal", flush=True)
+        curr_mode = "normal"
+
+        def handle_sigusr2(*_: Any) -> None:
+            print(curr_mode, flush=True)
+
+        signal(SIGUSR2, handle_sigusr2)
+
+        print(curr_mode, flush=True)
         for line in status_fifo:
             m = msg_re.match(line)
             if not m:
@@ -234,17 +241,20 @@ def main(argv: Optional[List[str]] = None) -> int:
                         assert hotkey is not None
                         keybind = hotkey.keybind
                         assert keybind is not None
-                        mode = keybind.metadata.get(
+                        curr_mode = keybind.metadata.get(
                             namespace.mode_field, "__unknown__"
                         )
-                        print(mode, flush=True)
+                        print(curr_mode)
                     else:
-                        print("in-chain", flush=True)
+                        curr_mode = "in-chain"
+                        print(curr_mode)
             elif type_ == "E" and msg == "End chain":
                 # Timeout immediately has 'EEnd chain' after it.
-                print("normal", flush=True)
+                curr_mode = "normal"
+                print(curr_mode)
             elif type_ == "H":
                 prev_hotkey_str = msg
+            sys.stdout.flush()
     finally:
         if do_close:
             status_fifo.close()
