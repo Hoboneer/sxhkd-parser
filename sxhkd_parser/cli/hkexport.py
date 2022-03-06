@@ -9,6 +9,7 @@ from typing import Iterable, List, Optional, Set, Type
 
 from ..errors import SXHKDParserError
 from ..metadata import SectionTreeNode
+from ..parser import Hotkey, expand_sequences
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
@@ -26,12 +27,17 @@ class PrintOption(Enum):
 
 
 class KeybindEmitter(ABC):
-    def __init__(self, options: Optional[Iterable[PrintOption]] = None):
+    def __init__(
+        self,
+        options: Optional[Iterable[PrintOption]] = None,
+        expand_sequences: bool = False,
+    ):
         self.options: Set[PrintOption]
         if options is None:
             self.options = set()
         else:
             self.options = set(options)
+        self.expand_sequences = expand_sequences
 
     @abstractmethod
     def emit_node_header(
@@ -48,7 +54,7 @@ class KeybindEmitter(ABC):
     def emit_node_footer(
         self, node: SectionTreeNode, level: int, fields: List[str]
     ) -> Iterable[str]:
-        pass
+        return iter([])
 
     def emit(
         self, node: SectionTreeNode, level: int, fields: List[str]
@@ -89,16 +95,47 @@ class HTMLEmitter(KeybindEmitter):
         yield f'{base}<table class="hotkeys">'
         for i, keybind in enumerate(node.keybind_children):
             curr_base = base + "  "
-            yield f'{curr_base}<tr class="hotkey" id="{self._get_id_slug(node)}-{i}">'
-            field_base = curr_base + "  "
-            for field in fields:
-                if field == "hotkey":
-                    yield f"{field_base}<td class=\"bind\">{keybind.hotkey.raw if isinstance(keybind.hotkey.raw, str) else ' '.join(keybind.hotkey.raw)}</td>"
-                elif field == "mode":
-                    yield f"{field_base}<td class=\"mode\">{keybind.metadata.get('mode', 'normal')}</td>"
+            if self.expand_sequences:
+                if "description" in keybind.metadata:
+                    try:
+                        desc_perms = expand_sequences(
+                            keybind.metadata["description"]
+                        ).generate_permutations()
+                    except Exception:
+                        desc_perms = None
+                    else:
+                        assert desc_perms is not None
+                        if len(desc_perms) != len(keybind.hotkey.permutations):
+                            desc_perms = None
                 else:
-                    yield f"{field_base}<td class=\"field-{field}\">{keybind.metadata.get(field, f'<em>No field {field!r}.</em>')}</td>"
-            yield f"{curr_base}</tr>"
+                    desc_perms = None
+                for j, perm in enumerate(keybind.hotkey.permutations):
+                    yield f'{curr_base}<tr class="hotkey" id="{self._get_id_slug(node)}-{i}-{j}">'
+                    field_base = curr_base + "  "
+                    for field in fields:
+                        if field == "hotkey":
+                            hotkey_str = Hotkey.static_hotkey_str(
+                                perm, keybind.hotkey.noabort_index
+                            )
+                            yield f'{field_base}<td class="bind">{hotkey_str}</td>'
+                        elif field == "mode":
+                            yield f"{field_base}<td class=\"mode\">{keybind.metadata.get('mode', 'normal')}</td>"
+                        elif field == "description" and desc_perms:
+                            yield f'{field_base}<td class="field-{field}">{desc_perms[j]}</td>'
+                        else:
+                            yield f"{field_base}<td class=\"field-{field}\">{keybind.metadata.get(field, f'<em>No field {field!r}.</em>')}</td>"
+                    yield f"{curr_base}</tr>"
+            else:
+                yield f'{curr_base}<tr class="hotkey" id="{self._get_id_slug(node)}-{i}">'
+                field_base = curr_base + "  "
+                for field in fields:
+                    if field == "hotkey":
+                        yield f"{field_base}<td class=\"bind\">{keybind.hotkey.raw if isinstance(keybind.hotkey.raw, str) else ' '.join(keybind.hotkey.raw)}</td>"
+                    elif field == "mode":
+                        yield f"{field_base}<td class=\"mode\">{keybind.metadata.get('mode', 'normal')}</td>"
+                    else:
+                        yield f"{field_base}<td class=\"field-{field}\">{keybind.metadata.get(field, f'<em>No field {field!r}.</em>')}</td>"
+                yield f"{curr_base}</tr>"
         yield f"{base}</table>"
 
     def emit_node_footer(
@@ -118,18 +155,48 @@ class PlaintextEmitter(KeybindEmitter):
         self, node: SectionTreeNode, level: int, fields: List[str]
     ) -> Iterable[str]:
         for keybind in node.keybind_children:
-            line = []
-            for field in fields:
-                if field == "hotkey":
-                    if isinstance(keybind.hotkey.raw, str):
-                        line.append(keybind.hotkey.raw)
+            if self.expand_sequences:
+                if "description" in keybind.metadata:
+                    try:
+                        desc_perms = expand_sequences(
+                            keybind.metadata["description"]
+                        ).generate_permutations()
+                    except Exception:
+                        desc_perms = None
                     else:
-                        line.append(" ".join(keybind.hotkey.raw))
-                elif field == "mode":
-                    line.append(keybind.metadata.get("mode", "normal"))
+                        assert desc_perms is not None
+                        if len(desc_perms) != len(keybind.hotkey.permutations):
+                            desc_perms = None
                 else:
-                    line.append(keybind.metadata.get(field, ""))
-            yield "\t".join(line)
+                    desc_perms = None
+                for j, perm in enumerate(keybind.hotkey.permutations):
+                    line = []
+                    for field in fields:
+                        if field == "hotkey":
+                            hotkey_str = Hotkey.static_hotkey_str(
+                                perm, keybind.hotkey.noabort_index
+                            )
+                            line.append(hotkey_str)
+                        elif field == "mode":
+                            line.append(keybind.metadata.get("mode", "normal"))
+                        elif field == "description" and desc_perms:
+                            line.append(desc_perms[j])
+                        else:
+                            line.append(keybind.metadata.get(field, ""))
+                    yield "\t".join(line)
+            else:
+                line = []
+                for field in fields:
+                    if field == "hotkey":
+                        if isinstance(keybind.hotkey.raw, str):
+                            line.append(keybind.hotkey.raw)
+                        else:
+                            line.append(" ".join(keybind.hotkey.raw))
+                    elif field == "mode":
+                        line.append(keybind.metadata.get("mode", "normal"))
+                    else:
+                        line.append(keybind.metadata.get(field, ""))
+                yield "\t".join(line)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -158,6 +225,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=["hotkey", "description", "mode"],
         type=lambda x: x.split(","),
         help="the metadata fields and the order in which to print them ('hotkey' isn't strictly metadata, but oh well)",
+    )
+    parser.add_argument(
+        "--expand",
+        "-E",
+        action="store_true",
+        help="expand embedded sequences (also expands the 'description' field if the permutations match)",
     )
     records_group = parser.add_mutually_exclusive_group()
     records_group.add_argument(
@@ -209,12 +282,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             f"unreachable! invalid export format {namespace.format}"
         )
 
+    print_options: Iterable[PrintOption]
     if namespace.records == "all":
-        emitter = emittercls(PrintOption.__members__.values())
+        print_options = PrintOption.__members__.values()
     else:
-        emitter = emittercls(
-            [PrintOption.__members__[namespace.records.upper()]]
-        )
+        print_options = [PrintOption.__members__[namespace.records.upper()]]
+    emitter = emittercls(print_options, expand_sequences=namespace.expand)
 
     for line in emitter.emit(
         section_handler.root, level=0, fields=namespace.fields
