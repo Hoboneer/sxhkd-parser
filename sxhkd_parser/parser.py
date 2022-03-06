@@ -42,6 +42,7 @@ from .errors import (
     ConflictingChainPrefixError,
     DuplicateChordPermutationError,
     DuplicateModifierError,
+    HotkeyParseError,
     HotkeyTokenizeError,
     InconsistentKeybindCasesError,
     InconsistentNoabortError,
@@ -965,8 +966,10 @@ class Hotkey:
             tokens = Hotkey.tokenize_static_hotkey(flat_perm, self.line)
             try:
                 noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
-            except DuplicateModifierError as e:
-                e.message = f"{e.message} in '{flat_perm}'"
+            except HotkeyParseError as e:
+                if isinstance(e, DuplicateModifierError):
+                    e.message = f"{e.message} in '{flat_perm}'"
+                e.line = self.line
                 raise
             if i == 0:
                 prev_perm = chords
