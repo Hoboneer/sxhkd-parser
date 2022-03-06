@@ -1,4 +1,4 @@
-PACKAGE_DIRS := sxhkd_parser
+PACKAGE_DIRS := sxhkd_parser sxhkd_parser/cli
 SOURCE_FILES := $(foreach dir, $(PACKAGE_DIRS), $(wildcard $(dir)/*.py)) #$(wildcard tests/*.py)
 CHECK_FILES := $(SOURCE_FILES) setup.py
 
