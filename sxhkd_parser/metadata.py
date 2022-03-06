@@ -237,10 +237,16 @@ class SectionHandler(ABC):
     """Abstract base class for managing sxhkdrc sections.
 
     Abstract methods/properties:
+        - reset
         - push
         - root
         - current_section
     """
+
+    @abstractmethod
+    def reset(self) -> None:
+        """Reset the section handler."""
+        raise NotImplementedError
 
     @abstractmethod
     def push(self, text: str, line: int) -> bool:
@@ -276,6 +282,10 @@ class RootSectionHandler(SectionHandler):
     _section: SectionTreeNode
 
     def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset the section handler."""
         self._section = SectionTreeNode.build_root()
 
     def push(self, text: str, line: int) -> bool:
@@ -322,6 +332,10 @@ class SimpleSectionHandler(SectionHandler):
             raise ValueError(
                 "section header regex must have the named group 'name'"
             )
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset the section handler."""
         self._root = SectionTreeNode.build_root()
         self.sections = [self._root]
 
@@ -388,6 +402,10 @@ class StackSectionHandler(SectionHandler):
             raise ValueError(
                 "section header regex must have the named group 'name'"
             )
+        self.reset()
+
+    def reset(self) -> None:
+        """Reset the section handler."""
         self._section_tree = SectionTreeNode.build_root()
         self._section_stack = [self._section_tree]
 
