@@ -1,6 +1,6 @@
 # sxhkd-parser
 
-sxhkd-parser is a mostly complete library for parsing
+sxhkd-parser is a mostly complete library written in Python for parsing
 [sxhkd](https://github.com/baskerville/sxhkd) configs.
 
 Future uses:
@@ -9,6 +9,14 @@ Future uses:
   - Programmatically modify or merge keybinds
   - Keep track of mode for use in status bar, etc.
 
+## Bundled tools
+
+- `hkcheck`: Lint your keybinds.
+- `hkexport`: Export your keybinds to various formats including HTML and plaintext.
+- `hkwatch`: Tail the sxhkd status fifo and output the current mode.
+
+For more, see the modules prefixed with `hk` in `sxhkd_parser/cli/`.
+
 ## Quickstart
 
 ### Print all your keybinds
@@ -16,7 +24,11 @@ Future uses:
 ```python
 from sxhkd_parser import *
 
-for keybind in read_sxhkdrc('sxhkdrc'):
+for bind_or_err in read_sxhkdrc('sxhkdrc'):
+    if isinstance(bind_or_err, SXHKDParserError):
+        print(bind_or_err)
+        continue
+    keybind = bind_or_err
     print(keybind)
     keybind.hotkey.get_tree().print_tree()
     keybind.command.get_tree().print_tree()
@@ -29,7 +41,10 @@ from sxhkd_parser import *
 
 handler = SimpleSectionHandler(r'^#\s*(?P<name>[A-Z. /-]+):$')
 parser = SimpleDescriptionParser(r'^#\s*(?P<value>[A-Z][^.]+\.)$')
-for keybind in read_sxhkdrc('sxhkdrc', section_handler=handler, metadata_parser=parser):
+for bind_or_err in read_sxhkdrc('sxhkdrc', section_handler=handler, metadata_parser=parser):
+    if isinstance(bind_or_err, SXHKDParserError):
+        print(bind_or_err)
+        continue
     print(keybind)
     keybind.hotkey.get_tree().print_tree()
     keybind.command.get_tree().print_tree()
