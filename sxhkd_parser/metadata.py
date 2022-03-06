@@ -111,8 +111,8 @@ class SectionTreeNode:
         msg = f"{SectionTreeNode._get_level_prefix(level)}"
         if "description" in keybind.metadata:
             desc = keybind.metadata["description"]
+            # TODO: handle exceptions
             expanded = expand_sequences(desc)
-            # print(f"{expanded=}")
             if isinstance(expanded, str):
                 assert desc == expanded
                 # No permutations, so just print it plainly.
