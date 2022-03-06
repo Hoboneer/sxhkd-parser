@@ -56,7 +56,27 @@ __all__ = [
 class SXHKDParserError(Exception):
     """Ancestor for almost all of the exceptions in the library."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        line: Optional[int] = None,
+        column: Optional[int] = None,
+    ):
+        super().__init__(message)
+        self.message = message
+        self.line = line
+        self.column = column
+
+    def __str__(self) -> str:
+        if self.line is not None:
+            if self.column is None:
+                return f"{self.line}: {self.message}"
+            else:
+                return f"{self.line}:{self.column}: {self.message}"
+        elif self.column is not None:
+            return f"{self.message} at column {self.column}"
+        else:
+            return self.message
 
 
 class KeybindError(SXHKDParserError):
@@ -75,17 +95,9 @@ class InconsistentKeybindCasesError(KeybindError):
         command_cases: int,
         line: Optional[int] = None,
     ):
-        super().__init__(message)
-        self.message = message
+        super().__init__(message=message, line=line)
         self.hotkey_cases = hotkey_cases
         self.command_cases = command_cases
-        self.line = line
-
-    def __str__(self) -> str:
-        if self.line is not None:
-            return f"{self.line}: {self.message}"
-        else:
-            return self.message
 
 
 class SequenceParseError(SXHKDParserError):
@@ -98,21 +110,9 @@ class SequenceParseError(SXHKDParserError):
         line: Optional[int] = None,
         column: Optional[int] = None,
     ):
-        self.message = message
+        super().__init__(message=message, line=line, column=column)
         self.text = text
         self.line = line
-        self.column = column
-
-    def __str__(self) -> str:
-        if self.line is not None:
-            if self.column is None:
-                return f"{self.line}: {self.message}"
-            else:
-                return f"{self.line}:{self.column}: {self.message}"
-        elif self.column is not None:
-            return f"{self.message} at column {self.column}"
-        else:
-            return self.message
 
 
 class HotkeyError(SXHKDParserError):
@@ -127,16 +127,9 @@ class HotkeyTokenizeError(HotkeyError):
     def __init__(
         self, message: str, hotkey: str, value: str, line: Optional[int] = None
     ):
-        self.message = message
+        super().__init__(message=message, line=line)
         self.hotkey = hotkey
         self.value = value
-        self.line = line
-
-    def __str__(self) -> str:
-        if self.line is not None:
-            return f"{self.line}: {self.message}"
-        else:
-            return self.message
 
 
 class HotkeyParseError(HotkeyError):
@@ -156,7 +149,7 @@ class UnexpectedTokenError(HotkeyParseError):
         transitions: TransitionTable,
         tokens: List[HotkeyToken],
     ):
-        super().__init__(message)
+        super().__init__(message=message)
         self.token = token
         self.mode = mode
         self.transitions = transitions
@@ -167,7 +160,7 @@ class NonTerminalStateExitError(HotkeyParseError):
     """The input ended on a non-terminal parser state."""
 
     def __init__(self, message: str, mode: _HotkeyParseMode):
-        super().__init__(message)
+        super().__init__(message=message)
         self.mode = mode
 
 
@@ -183,29 +176,19 @@ class InconsistentNoabortError(HotkeyParseError):
         index2: Optional[int],
         line: Optional[int] = None,
     ):
-        self.message = message
+        super().__init__(message=message, line=line)
         self.perm1 = perm1
         self.perm2 = perm2
         self.index1 = index1
         self.index2 = index2
-        self.line = line
-
-    def __str__(self) -> str:
-        if self.line is not None:
-            return f"{self.line}: {self.message}"
-        else:
-            return self.message
 
 
 class DuplicateModifierError(HotkeyParseError):
     """A modifier was repeated in the same chord."""
 
     def __init__(self, message: str, modifier: str):
-        self.message = message
+        super().__init__(message=message)
         self.modifier = modifier
-
-    def __str__(self) -> str:
-        return self.message
 
 
 class DuplicateChordPermutationError(HotkeyError):
@@ -219,17 +202,10 @@ class DuplicateChordPermutationError(HotkeyError):
         perm2: Tuple[int, Optional[int]],
         line: Optional[int] = None,
     ):
-        self.message = message
+        super().__init__(message=message, line=line)
         self.dup_perm = dup_perm
         self.index_1, self.noabort_index_1 = perm1
         self.index_2, self.noabort_index_2 = perm2
-        self.line = line
-
-    def __str__(self) -> str:
-        if self.line is not None:
-            return f"{self.line}: {self.message}"
-        else:
-            return self.message
 
 
 class ConflictingChainPrefixError(HotkeyError):
@@ -242,16 +218,9 @@ class ConflictingChainPrefixError(HotkeyError):
         conflicts: List[KeypressTreeNode],
         line: Optional[int] = None,
     ):
-        self.message = message
+        super().__init__(message=message, line=line)
         self.chain_prefix = chain_prefix
         self.conflicts = conflicts
-        self.line = line
-
-    def __str__(self) -> str:
-        if self.line is not None:
-            return f"{self.line}: {self.message}"
-        else:
-            return self.message
 
 
 class PossiblyInvalidKeysyms(HotkeyError):
@@ -270,15 +239,8 @@ class PossiblyInvalidKeysyms(HotkeyError):
         keysyms: Set[str],
         line: Optional[int] = None,
     ):
-        self.message = message
+        super().__init__(message=message, line=line)
         self.keysyms = keysyms
-        self.line = line
-
-    def __str__(self) -> str:
-        if self.line is not None:
-            return f"{self.line}: {self.message}"
-        else:
-            return self.message
 
 
 class SectionHandlerError(SXHKDParserError):
@@ -291,11 +253,7 @@ class SectionPushError(SectionHandlerError):
     """Miscellaneous errors while pushing a potential section."""
 
     def __init__(self, message: str, line: int):
-        self.message = message
-        self.line = line
-
-    def __str__(self) -> str:
-        return f"{self.line}: {self.message}"
+        super().__init__(message=message, line=line)
 
 
 class SectionEOFError(SectionHandlerError):
@@ -304,6 +262,7 @@ class SectionEOFError(SectionHandlerError):
     def __init__(
         self, message: str, last_line: int, sections: List[SectionTreeNode]
     ):
+        super().__init__(message=message, line=last_line)
         self.message = message
         self.last_line = last_line
         self.sections = sections
@@ -313,10 +272,6 @@ class MetadataParserError(SXHKDParserError):
     """Miscellaneous errors while instance was parsing comments for metadata."""
 
     def __init__(self, message: str, key: str, value: Any, line: int):
-        self.message = message
+        super().__init__(message=message, line=line)
         self.key = key
         self.value = value
-        self.line = line
-
-    def __str__(self) -> str:
-        return f"{self.line}: {self.message}"
