@@ -450,45 +450,57 @@ class KeypressTreeNode:
         return self.permutation_index is not None
 
     def add_child(
-        self, value: Union[Chord, KeypressTreeInternalNode, KeypressTreeNode]
+        self,
+        value: Union[Chord, KeypressTreeInternalNode, KeypressTreeNode],
+        merge: bool = False,
     ) -> KeypressTreeNode:
         """Add an existing node as a child, or create and add a new one with the given value.
 
         Synchronizes with the relevant `*_children` dicts.  For non-`Chord`
-        node inputs, raises `ValueError` if the child already exists in the
-        relevant `*_children` dicts.
+        node inputs, if `merge` is `False`, raises `ValueError` if the child
+        already exists in the relevant `*_children` dicts.  if `merge` is
+        `True`, just adds the children of `value` as children of the existing
+        internal node.
         """
         if isinstance(value, KeypressTreeNode):
             child = value
         else:
             child = KeypressTreeNode(value)
+        if isinstance(child.value, Chord):
+            self.children.append(child)
+            return child
 
+        curr_children: Dict[Any, KeypressTreeNode]
         if isinstance(child.value, KeypressTreeKeysymNode):
-            if child.value.value in self.keysym_children:
-                raise ValueError(
-                    f"Keysym child '{child.value.value}' already exists at this node."
-                )
-            self.keysym_children[child.value.value] = child
+            curr_children = self.keysym_children
         elif isinstance(child.value, KeypressTreeModifierSetNode):
-            if child.value.value in self.modifierset_children:
-                raise ValueError(
-                    f"Modifierset child '{child.value.value}' already exists at this node."
-                )
-            self.modifierset_children[child.value.value] = child
+            curr_children = self.modifierset_children
         elif isinstance(child.value, KeypressTreeChordRunEventNode):
-            if child.value.value in self.runevent_children:
-                raise ValueError(
-                    f"Run-event child '{child.value.value}' already exists at this node."
-                )
-            self.runevent_children[child.value.value] = child
+            curr_children = self.runevent_children
         elif isinstance(child.value, KeypressTreeReplayNode):
-            if child.value.value in self.replay_children:
-                raise ValueError(
-                    f"Replay child '{child.value.value}' already exists at this node."
-                )
-            self.replay_children[child.value.value] = child
-        self.children.append(child)
+            curr_children = self.replay_children
+        else:
+            raise RuntimeError(
+                f"Unhandled internal node type {type(child.value)!r}"
+            )
 
+        assert not isinstance(child.value, Chord)
+        curr_node = curr_children.get(child.value.value)
+        if curr_node:
+            if merge:
+                for subchild in child.children:
+                    curr_node.add_child(subchild, merge=merge)
+            else:
+                typename = re.match(
+                    r"^KeypressTree(.+)Node$", type(child.value).__name__
+                )
+                assert typename is not None
+                raise ValueError(
+                    f"{typename[1]} child '{child.value.value}' already exists at this node."
+                )
+        else:
+            curr_children[child.value.value] = child
+        self.children.append(child)
         return child
 
     def remove_child(self, index: int) -> KeypressTreeNode:
@@ -776,7 +788,7 @@ class HotkeyTree:
                     keep_child.hotkey = merge_child.hotkey
 
                 for subchild in merge_child.children:
-                    keep_child.add_child(subchild)
+                    keep_child.add_child(subchild, merge=True)
                 removed_children.append(j)
 
         # Remove from right-to-left in children list.
