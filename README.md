@@ -3,7 +3,8 @@
 sxhkd-parser is a mostly complete library written in Python for parsing
 [sxhkd](https://github.com/baskerville/sxhkd) configs.
 
-Future uses:
+## Future uses
+
   - Export keybinds to markdown, html, etc.
   - Search for keybinds
   - Programmatically modify or merge keybinds
