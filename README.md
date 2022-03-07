@@ -65,3 +65,9 @@ preceding the start of the keybind that matches the given regex.
 
 - Inconsistent location of `:` to indicate noabort across the permutations of a hotkey:
     - Each `Hotkey` object has a single `noabort_index` attribute.  This will not change.
+- Alphanumeric ranges within sequences of the form `{s1,s2,s3,...,sn}`:
+    - These are OK:
+      - Alphabetic: `A-Z`, `a-z`, `A-F`, `a-f`, `A-z` (within ASCII)
+      - Numeric: `0-9`, `5-8`
+    - These are *not*: `0-A`, `A-0`
+    - I'm open to changing this if there's a good justification for it.
