@@ -44,37 +44,51 @@ def main(argv: Optional[List[str]] = None) -> int:
     # TODO: maybe include other internal nodes?
     INTERNAL_NODES = ["modifierset"]
     hotkey_tree = HotkeyTree(INTERNAL_NODES)
-    for bind_or_err in read_sxhkdrc(
-        namespace.sxhkdrc,
-        section_handler=section_handler,
-        metadata_parser=metadata_parser,
-        # Handle them ourselves.
-        hotkey_errors=IGNORE_HOTKEY_ERRORS,
-    ):
-        if isinstance(bind_or_err, SXHKDParserError):
-            errors.append(
-                Message(bind_or_err.line, bind_or_err.column, str(bind_or_err))
-            )
-            continue
-
-        keybind = bind_or_err
-        # Check for possibly invalid keysyms.
-        keysyms = set()
-        for perm in keybind.hotkey.permutations:
-            for chord in perm:
-                if chord.keysym not in KEYSYMS:
-                    keysyms.add(chord.keysym)
-        if keysyms:
-            keysym_str = " ,".join(f"'{k}'" for k in keysyms)
-            errors.append(
-                Message(
-                    keybind.line,
-                    None,
-                    f"{keybind.line}: Possibly invalid keysyms: {keysym_str}",
+    try:
+        for bind_or_err in read_sxhkdrc(
+            namespace.sxhkdrc,
+            section_handler=section_handler,
+            metadata_parser=metadata_parser,
+            # Handle them ourselves.
+            hotkey_errors=IGNORE_HOTKEY_ERRORS,
+        ):
+            if isinstance(bind_or_err, SXHKDParserError):
+                errors.append(
+                    Message(
+                        bind_or_err.line, bind_or_err.column, str(bind_or_err)
+                    )
                 )
-            )
+                continue
 
-        hotkey_tree.merge_hotkey(keybind.hotkey)
+            keybind = bind_or_err
+            # Check for possibly invalid keysyms.
+            keysyms = set()
+            for perm in keybind.hotkey.permutations:
+                for chord in perm:
+                    if chord.keysym not in KEYSYMS:
+                        keysyms.add(chord.keysym)
+            if keysyms:
+                keysym_str = " ,".join(f"'{k}'" for k in keysyms)
+                errors.append(
+                    Message(
+                        keybind.line,
+                        None,
+                        f"{keybind.line}: Possibly invalid keysyms: {keysym_str}",
+                    )
+                )
+
+            hotkey_tree.merge_hotkey(keybind.hotkey)
+    except SXHKDParserError as e:
+        # Print errors inside-out.
+        def print_errors(ex: BaseException) -> None:
+            if ex.__context__ is None:
+                print(f"{namespace.sxhkdrc}:{ex} [FATAL]")
+                return
+            print_errors(ex.__context__)
+            print(f"{namespace.sxhkdrc}:{ex} [FATAL]")
+
+        print_errors(e)
+        return 1
 
     hotkey_tree.dedupe_chord_nodes()
     for dupset in hotkey_tree.find_duplicate_chord_nodes():

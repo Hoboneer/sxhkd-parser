@@ -39,7 +39,10 @@ def read_config(
         hotkey_errors=IGNORE_HOTKEY_ERRORS,
     ):
         if isinstance(bind_or_err, SXHKDParserError):
-            print(bind_or_err, file=sys.stderr)
+            if bind_or_err.line is None:
+                print(f"{config}: {bind_or_err}", file=sys.stderr)
+            else:
+                print(f"{config}:{bind_or_err}", file=sys.stderr)
             continue
 
         keybind = bind_or_err
@@ -193,11 +196,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"Loading config file '{namespace.sxhkdrc}'", file=sys.stderr)
     tree = read_config(namespace.sxhkdrc, section_handler, metadata_parser)
 
+    # Actually reload the config at a set point in the loop to avoid data
+    # becoming stale inside the rest of the loop body.
+    # It's delayed, but it's is safe since, for us, the keybinds are
+    # essentially unchanged until the first time we get a fifo message after
+    # setting the flag.
+    reload_config = False
+
     def handle_sigusr1(*_: Any) -> None:
-        nonlocal tree
-        print(f"Reloading config file '{namespace.sxhkdrc}'", file=sys.stderr)
-        section_handler.reset()
-        tree = read_config(namespace.sxhkdrc, section_handler, metadata_parser)
+        nonlocal reload_config
+        print(
+            f"Arranging to reload config file '{namespace.sxhkdrc}'",
+            file=sys.stderr,
+        )
+        reload_config = True
 
     signal(SIGUSR1, handle_sigusr1)
 
@@ -220,6 +232,54 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         print(curr_mode, flush=True)
         for line in status_fifo:
+            if reload_config:
+                reload_config = False
+                print(
+                    f"Reloading config file '{namespace.sxhkdrc}'",
+                    file=sys.stderr,
+                )
+                new_section_handler = section_handler.clone_config()
+                try:
+                    new_tree = read_config(
+                        namespace.sxhkdrc, new_section_handler, metadata_parser
+                    )
+                except Exception as e:
+                    # Print errors inside-out.
+                    def print_errors(ex: BaseException) -> None:
+                        if ex.__context__ is None:
+                            if (
+                                isinstance(ex, SXHKDParserError)
+                                and ex.line is not None
+                            ):
+                                print(
+                                    f"{namespace.sxhkdrc}:{ex}",
+                                    file=sys.stderr,
+                                )
+                            else:
+                                print(
+                                    f"{namespace.sxhkdrc}: {ex}",
+                                    file=sys.stderr,
+                                )
+                            return
+                        print_errors(ex.__context__)
+                        if (
+                            isinstance(ex, SXHKDParserError)
+                            and ex.line is not None
+                        ):
+                            print(f"{namespace.sxhkdrc}:{ex}", file=sys.stderr)
+                        else:
+                            print(
+                                f"{namespace.sxhkdrc}: {ex}", file=sys.stderr
+                            )
+
+                    print_errors(e)
+                    print(
+                        "Got errors while reloading config: using old keybinds...",
+                        file=sys.stderr,
+                    )
+                else:
+                    tree = new_tree
+                    section_handler = new_section_handler
             m = msg_re.match(line)
             if not m:
                 continue

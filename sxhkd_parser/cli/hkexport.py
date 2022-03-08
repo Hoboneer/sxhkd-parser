@@ -262,14 +262,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     section_handler, metadata_parser = process_args(namespace)
 
     # Exhaust the generator function to read all keybinds.
-    for bind_or_err in read_sxhkdrc(
-        namespace.sxhkdrc,
-        section_handler=section_handler,
-        metadata_parser=metadata_parser,
-        hotkey_errors=IGNORE_HOTKEY_ERRORS,
-    ):
-        if isinstance(bind_or_err, SXHKDParserError):
-            print(bind_or_err, file=sys.stderr)
+    try:
+        for bind_or_err in read_sxhkdrc(
+            namespace.sxhkdrc,
+            section_handler=section_handler,
+            metadata_parser=metadata_parser,
+            hotkey_errors=IGNORE_HOTKEY_ERRORS,
+        ):
+            if isinstance(bind_or_err, SXHKDParserError):
+                print(bind_or_err, file=sys.stderr)
+    except SXHKDParserError as e:
+        # Print errors inside-out.
+        def print_errors(ex: BaseException) -> None:
+            if ex.__context__ is None:
+                print(f"{namespace.sxhkdrc}:{ex} [FATAL]", file=sys.stderr)
+                return
+            print_errors(ex.__context__)
+            print(f"{namespace.sxhkdrc}:{ex} [FATAL]", file=sys.stderr)
+
+        print_errors(e)
+        return 1
     section_handler.root.name = "SXHKD keybinds"
 
     emittercls: Type[KeybindEmitter]
