@@ -40,6 +40,7 @@ from typing import (
     Optional,
     Pattern,
     Tuple,
+    Union,
 )
 
 from .errors import MetadataParserError, SectionEOFError, SectionPushError
@@ -238,6 +239,7 @@ class SectionHandler(ABC):
 
     Abstract methods/properties:
         - reset
+        - clone_config
         - push
         - root
         - current_section
@@ -246,6 +248,11 @@ class SectionHandler(ABC):
     @abstractmethod
     def reset(self) -> None:
         """Reset the section handler."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def clone_config(self) -> SectionHandler:
+        """Create an empty instance with the same configuration."""
         raise NotImplementedError
 
     @abstractmethod
@@ -288,6 +295,10 @@ class RootSectionHandler(SectionHandler):
         """Reset the section handler."""
         self._section = SectionTreeNode.build_root()
 
+    def clone_config(self) -> RootSectionHandler:
+        """Create an empty instance with the same configuration."""
+        return RootSectionHandler()
+
     def push(self, text: str, line: int) -> bool:
         """Reject the input.
 
@@ -322,12 +333,15 @@ class SimpleSectionHandler(SectionHandler):
     sections: List[SectionTreeNode]
     _root: SectionTreeNode = field(repr=False)
 
-    def __init__(self, section_header_re: str):
+    def __init__(self, section_header_re: Union[str, re.Pattern[str]]):
         """Create an instance with a regex for section headers.
 
         `section_header_re` must have a named group 'name'.
         """
-        self.section_header_re = re.compile(section_header_re)
+        if isinstance(section_header_re, re.Pattern):
+            self.section_header_re = section_header_re
+        else:
+            self.section_header_re = re.compile(section_header_re)
         if "name" not in self.section_header_re.groupindex:
             raise ValueError(
                 "section header regex must have the named group 'name'"
@@ -338,6 +352,10 @@ class SimpleSectionHandler(SectionHandler):
         """Reset the section handler."""
         self._root = SectionTreeNode.build_root()
         self.sections = [self._root]
+
+    def clone_config(self) -> SimpleSectionHandler:
+        """Create an empty instance with the same configuration."""
+        return SimpleSectionHandler(self.section_header_re)
 
     def push(self, text: str, line: int) -> bool:
         """Return whether `text` can be parsed as a section header.
@@ -390,14 +408,24 @@ class StackSectionHandler(SectionHandler):
     _section_tree: SectionTreeNode = field(repr=False)
     _section_stack: List[SectionTreeNode] = field(repr=False)
 
-    def __init__(self, section_header_re: str, section_footer_re: str):
+    def __init__(
+        self,
+        section_header_re: Union[str, re.Pattern[str]],
+        section_footer_re: Union[str, re.Pattern[str]],
+    ):
         """Create an instance with regexes for section headers and footers.
 
         `section_header_re` must have a named group 'name'.
         `section_footer_re` doesn't need any named groups.
         """
-        self.section_header_re = re.compile(section_header_re)
-        self.section_footer_re = re.compile(section_footer_re)
+        if isinstance(section_header_re, re.Pattern):
+            self.section_header_re = section_header_re
+        else:
+            self.section_header_re = re.compile(section_header_re)
+        if isinstance(section_footer_re, re.Pattern):
+            self.section_footer_re = section_footer_re
+        else:
+            self.section_footer_re = re.compile(section_footer_re)
         if "name" not in self.section_header_re.groupindex:
             raise ValueError(
                 "section header regex must have the named group 'name'"
@@ -408,6 +436,12 @@ class StackSectionHandler(SectionHandler):
         """Reset the section handler."""
         self._section_tree = SectionTreeNode.build_root()
         self._section_stack = [self._section_tree]
+
+    def clone_config(self) -> StackSectionHandler:
+        """Create an empty instance with the same configuration."""
+        return StackSectionHandler(
+            self.section_header_re, self.section_footer_re
+        )
 
     def push(self, text: str, line: int) -> bool:
         """Return whether `text` can be parsed as a section header or footer.
