@@ -12,7 +12,7 @@ from typing import (
     cast,
 )
 
-from .errors import SXHKDParserError
+from .errors import MissingHotkeyError, SXHKDParserError
 from .metadata import MetadataParser, NullMetadataParser, SectionHandler
 from .parser import Keybind
 
@@ -119,7 +119,12 @@ def read_sxhkdrc(
 
             if line.startswith((" ", "\t")):
                 # command!
-                assert hotkey is not None
+                if hotkey is None:
+                    # Fatal error, so don't yield the exception.
+                    raise MissingHotkeyError(
+                        "Missing hotkey while reading a command: did you forget to escape a newline?",
+                        line=line_no,
+                    )
                 command = lines.copy()
                 command_start_line = line_block_start
 

@@ -29,6 +29,9 @@ if TYPE_CHECKING:
 __all__ = [
     "SXHKDParserError",
     # ---
+    "ConfigReadError",
+    "MissingHotkeyError",
+    # ---
     "KeybindError",
     "InconsistentKeybindCasesError",
     # ---
@@ -77,6 +80,18 @@ class SXHKDParserError(Exception):
             return f"{self.message} at column {self.column}"
         else:
             return self.message
+
+
+class ConfigReadError(SXHKDParserError):
+    """Base class for errors related to reading sxhkdrc files."""
+
+    pass
+
+
+class MissingHotkeyError(ConfigReadError):
+    """Command text was read without an accompanying hotkey."""
+
+    pass
 
 
 class KeybindError(SXHKDParserError):
