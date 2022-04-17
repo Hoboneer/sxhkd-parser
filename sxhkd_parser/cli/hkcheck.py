@@ -24,6 +24,11 @@ class Message(NamedTuple):
     message: str
 
 
+# Current as of sxhkd v0.5.1 - v0.6.2 (inclusive).
+SXHKD_MAXLEN = 256
+HOTKEY_MAXLEN = COMMAND_MAXLEN = 2 * SXHKD_MAXLEN
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the command-line tool with the given arguments, without the command name.
 
@@ -32,9 +37,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     """
     parser = argparse.ArgumentParser(
         get_command_name(__file__),
-        description="Check hotkeys for invalid keysyms, duplicates, and conflicts",
+        description="Check hotkeys for invalid keysyms, duplicates, conflicts, and truncation",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
+    )
+    parser.add_argument(
+        "--sxhkd-version",
+        "-S",
+        default="auto",
+        help="minimum sxhkd version: if 'auto', determine from output of `sxhkd -v` (currently a no-op)",
     )
 
     namespace = parser.parse_args(argv)
@@ -74,6 +85,33 @@ def main(argv: Optional[List[str]] = None) -> int:
                         keybind.line,
                         None,
                         f"{keybind.line}: Possibly invalid keysyms: {keysym_str}",
+                    )
+                )
+
+            # Check for truncated keybinds (since sxhkd avoids dynamic memory allocation)
+            # See https://github.com/baskerville/sxhkd/issues/139
+            if isinstance(keybind.hotkey.raw, list):
+                hotkey_txt = "\\\n".join(keybind.hotkey.raw)
+            else:
+                hotkey_txt = keybind.hotkey.raw
+            if len(hotkey_txt.encode()) > HOTKEY_MAXLEN:
+                errors.append(
+                    Message(
+                        keybind.hotkey.line,
+                        None,
+                        f"{keybind.hotkey.line}: Hotkey text exceeds {HOTKEY_MAXLEN} bytes so it may be truncated by sxhkd",
+                    )
+                )
+            if isinstance(keybind.command.raw, list):
+                command_txt = "\\\n".join(keybind.command.raw)
+            else:
+                command_txt = keybind.command.raw
+            if len(command_txt.encode()) > COMMAND_MAXLEN:
+                errors.append(
+                    Message(
+                        keybind.command.line,
+                        None,
+                        f"{keybind.command.line}: Command text exceeds {COMMAND_MAXLEN} bytes so it may be truncated by sxhkd",
                     )
                 )
 
