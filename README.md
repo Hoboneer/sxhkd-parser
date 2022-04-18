@@ -57,9 +57,12 @@ preceding the start of the keybind that matches the given regex.
 
 ## Terminology
 
-- Hotkey: The sequence of chords needed to activate a command.
-- Command: The command passed to the shell after the hotkey is completed.
-- Keybind: The entity that encompasses the above.
+1. Hotkey: The sequence of chords needed to activate a command.
+2. Command: The command passed to the shell after the hotkey is completed.
+3. Keybind: The entity that encompasses the above.
+
+I'm aware that "hotkey" and "keybind" are interchangeable and have the meaning
+of (3) above, so any suggestions for renaming (1) are welcome.
 
 ## Limitations
 
