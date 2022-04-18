@@ -89,8 +89,8 @@ _metadata_group.add_argument(
 )
 
 BASE_PARSER.add_argument(
-    "sxhkdrc",
-    nargs="?",
+    "--sxhkdrc",
+    "-c",
     default=find_sxhkdrc(),
     help="the location of the config file",
 )
