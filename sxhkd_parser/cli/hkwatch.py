@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from signal import SIGUSR1, SIGUSR2, signal
-from typing import Any, FrozenSet, List, Optional, cast
+from typing import Any, FrozenSet, List, Optional, Tuple, cast
 
 from ..errors import SXHKDParserError
 from ..keysyms import KEYSYMS
@@ -29,7 +30,8 @@ def read_config(
     config: str,
     section_handler: SectionHandler,
     metadata_parser: MetadataParser,
-) -> HotkeyTree:
+) -> Tuple[bool, HotkeyTree]:
+    errored = False
     hotkey_tree = HotkeyTree(INTERNAL_NODES)
     for bind_or_err in read_sxhkdrc(
         config,
@@ -43,6 +45,7 @@ def read_config(
                 print(f"{config}: {bind_or_err}", file=sys.stderr)
             else:
                 print(f"{config}:{bind_or_err}", file=sys.stderr)
+            errored = True
             continue
 
         keybind = bind_or_err
@@ -58,6 +61,7 @@ def read_config(
                 f"{keybind.line}: Possibly invalid keysyms: {keysym_str}",
                 file=sys.stderr,
             )
+            errored = True
 
         hotkey_tree.merge_hotkey(keybind.hotkey)
 
@@ -75,6 +79,7 @@ def read_config(
             cast(int, cast(Hotkey, node.hotkey).line) for node in dupset
         ):
             print(f"{line}: Duplicate hotkey '{hotkey_str}'", file=sys.stderr)
+        errored = True
 
     for prefix, conflicts in hotkey_tree.find_conflicting_chain_prefixes():
         assert prefix.hotkey is not None
@@ -122,7 +127,8 @@ def read_config(
                 f"{prefix.hotkey.line}: '{chain_hk_str}' conflicts with {', '.join(conflicts_str)}",
                 file=sys.stderr,
             )
-    return hotkey_tree
+        errored = True
+    return (errored, hotkey_tree)
 
 
 def find_matching_modsets(
@@ -165,6 +171,21 @@ def match_hotkey(
     return None
 
 
+PROGNAME = get_command_name(__file__)
+NOTIFY_SEND_ERR_PREFIX = [
+    "notify-send",
+    "-t",
+    "10000",
+    "-u",
+    "critical",
+]
+NOTIFY_SEND_INFO_PREFIX = [
+    "notify-send",
+    "-t",
+    "5000",
+]
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the command-line tool with the given arguments, without the command name.
 
@@ -172,7 +193,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     are left unhandled.
     """
     parser = argparse.ArgumentParser(
-        get_command_name(__file__),
+        PROGNAME,
         description="Tail the status fifo and output the current sxhkd mode until exit.  Needs only the H*, B*, and E* fifo messages.  Send SIGUSR1 to reload config and SIGUSR2 to print the current mode.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
@@ -189,12 +210,52 @@ def main(argv: Optional[List[str]] = None) -> int:
         default="mode",
         help="metadata key indicating the mode that a noabort hotkey belongs to",
     )
+    parser.add_argument(
+        "--notify-send-on-config-read",
+        action="store_true",
+        help="whether to call `notify-send` when reading configs",
+    )
+    parser.add_argument(
+        "--notify-send-on-config-read-error",
+        action="store_true",
+        help="whether to call `notify-send` upon config read error",
+    )
 
     namespace = parser.parse_args(argv)
     section_handler, metadata_parser = process_args(namespace)
 
-    print(f"Loading config file '{namespace.sxhkdrc}'", file=sys.stderr)
-    tree = read_config(namespace.sxhkdrc, section_handler, metadata_parser)
+    msg = f"Loading config file '{namespace.sxhkdrc}'"
+    print(msg, file=sys.stderr)
+    if namespace.notify_send_on_config_read:
+        subprocess.Popen(
+            NOTIFY_SEND_INFO_PREFIX
+            + [
+                f"{PROGNAME}: Loading config file for the first time",
+                f"Reading '{namespace.sxhkdrc}'",
+            ]
+        )
+    try:
+        errored, tree = read_config(
+            namespace.sxhkdrc, section_handler, metadata_parser
+        )
+    except Exception:
+        if namespace.notify_send_on_config_read_error:
+            subprocess.Popen(
+                NOTIFY_SEND_ERR_PREFIX
+                + [
+                    f"{PROGNAME}: Fatal error upon initial config read",
+                    "Quitting...",
+                ]
+            )
+        raise
+    if errored and namespace.notify_send_on_config_read_error:
+        subprocess.Popen(
+            NOTIFY_SEND_ERR_PREFIX
+            + [
+                f"{PROGNAME}: Warnings upon initial config read",
+                "Read stderr for error messages",
+            ]
+        )
 
     # Actually reload the config at a set point in the loop to avoid data
     # becoming stale inside the rest of the loop body.
@@ -209,6 +270,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             f"Arranging to reload config file '{namespace.sxhkdrc}'",
             file=sys.stderr,
         )
+        if namespace.notify_send_on_config_read:
+            subprocess.Popen(
+                NOTIFY_SEND_INFO_PREFIX
+                + [
+                    f"{PROGNAME}: Preparing to reload config file",
+                    f"Will reload '{namespace.sxhkdrc}' just in time",
+                ]
+            )
         reload_config = True
 
     signal(SIGUSR1, handle_sigusr1)
@@ -238,9 +307,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                     f"Reloading config file '{namespace.sxhkdrc}'",
                     file=sys.stderr,
                 )
+                if namespace.notify_send_on_config_read:
+                    subprocess.Popen(
+                        NOTIFY_SEND_INFO_PREFIX
+                        + [
+                            f"{PROGNAME}: Reloading config file",
+                            f"Reading '{namespace.sxhkdrc}'",
+                        ]
+                    )
                 new_section_handler = section_handler.clone_config()
                 try:
-                    new_tree = read_config(
+                    errored, new_tree = read_config(
                         namespace.sxhkdrc, new_section_handler, metadata_parser
                     )
                 except Exception as e:
@@ -277,9 +354,26 @@ def main(argv: Optional[List[str]] = None) -> int:
                         "Got errors while reloading config: using old keybinds...",
                         file=sys.stderr,
                     )
+                    if namespace.notify_send_on_config_read_error:
+                        subprocess.Popen(
+                            NOTIFY_SEND_ERR_PREFIX
+                            + [
+                                f"{PROGNAME}: Fatal config reload error",
+                                "Rolling back to old keybinds...",
+                            ]
+                        )
                 else:
                     tree = new_tree
                     section_handler = new_section_handler
+                    if errored and namespace.notify_send_on_config_read_error:
+                        subprocess.Popen(
+                            NOTIFY_SEND_ERR_PREFIX
+                            + [
+                                f"{PROGNAME}: Warnings upon config reload",
+                                "Read stderr for error messages",
+                            ]
+                        )
+
             m = msg_re.match(line)
             if not m:
                 continue

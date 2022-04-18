@@ -3,9 +3,6 @@
 - warn in some linter tool if two hotkeys with identical chains except the last differ by their value of `noabort`?
   - prerequisite: noabort used after *only* the second-to-last chord
 
-- hkwatch: Add option to call notify-send(1) to inform user that config read failed?
-  - Maybe also call it when preparing to read config?
-
 - hkxargs (?): xargs-like cli tool for executing programs on Hotkeys, Commands, or Keybinds
 
 - hkfind: a graphical program to find hotkeys incrementally with autocompletion basically
