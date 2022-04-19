@@ -51,15 +51,10 @@ BASE_PARSER.add_argument(
     action="version",
     version=f"%(prog)s (sxhkd-parser) {__version__}",
 )
-BASE_PARSER.add_argument(
+_section_group = BASE_PARSER.add_argument_group("section config")
+_section_group.add_argument(
     "--section-type", choices=["none", "simple", "stack"], default="none"
 )
-BASE_PARSER.add_argument(
-    "--metadata-type",
-    choices=["none", "simple", "key-value"],
-    default="none",
-)
-_section_group = BASE_PARSER.add_argument_group("section config")
 _section_group.add_argument(
     "--header",
     metavar="REGEX",
@@ -72,6 +67,11 @@ _section_group.add_argument(
 )
 
 _metadata_group = BASE_PARSER.add_argument_group("metadata config")
+_metadata_group.add_argument(
+    "--metadata-type",
+    choices=["none", "simple", "key-value"],
+    default="none",
+)
 _metadata_group.add_argument(
     "--description",
     metavar="REGEX",
