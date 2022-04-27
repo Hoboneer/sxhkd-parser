@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
@@ -184,6 +185,20 @@ def print_linter_output(
                 )
             else:
                 print(f"{namespace.sxhkdrc}:{keybind.command.line}:{msg}")
+
+
+def wait_on_proc(proc: subprocess.Popen[str]) -> Tuple[str, Optional[int]]:
+    _, errs = proc.communicate()
+    code = None
+    if proc.returncode != 0:
+        if 1 <= proc.returncode <= 125:
+            code = CODE_1_125
+        elif proc.returncode < 0:
+            code = CODE_SIGNAL
+        else:
+            code = CODE_CANNOT_RUN
+        code -= 64
+    return (errs, code)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -406,16 +421,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                 else:
                     if synchronous:
                         # Synchronous command may be long-running, so ensure it doesn't hang.
-                        _, errs = newproc.communicate()
+                        errs, newproc_code = wait_on_proc(newproc)
                         print(errs, end="", file=sys.stderr)
-                        if newproc.returncode != 0:
-                            if 1 <= newproc.returncode <= 125:
-                                code = CODE_1_125
-                            elif newproc.returncode < 0:
-                                code = CODE_SIGNAL
-                            else:
-                                code = CODE_CANNOT_RUN
-                            code -= 64
+                        if newproc_code is not None:
+                            code = newproc_code
                     else:
                         procs.append(newproc)
                 time.sleep(namespace.delay)
@@ -460,18 +469,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         i -= 1
 
     # Ensure any long-running subprocesses don't hang.
-    # TODO: maybe call .communicate() on each leftover process in worker threads?
-    for leftover in procs:
-        _, errs = leftover.communicate()
-        print(errs, end="", file=sys.stderr)
-        if leftover.returncode != 0:
-            if 1 <= leftover.returncode <= 125:
-                code = CODE_1_125
-            elif leftover.returncode < 0:
-                code = CODE_SIGNAL
-            else:
-                code = CODE_CANNOT_RUN
-            code -= 64
+    with ThreadPoolExecutor() as executor:
+        for errs, proc_code in executor.map(wait_on_proc, procs):
+            print(errs, end="", file=sys.stderr)
+            if proc_code is not None:
+                code = proc_code
 
     # Just return the latest exit code.
     # POSIX xargs doesn't specify it, so this xargs-like tool can do whatever.
