@@ -1,0 +1,26 @@
+# Rough grammar with non-standard syntax for hkfind expressions.
+# SYNTAX:
+#   - Separate different tokens by whitespace, but if *not* separated by whitespace, match *within* a token.
+#   - Unnamed non-terminal token: " ... "
+#   - Disjunction: ... | ...
+#   - Grouping: ( ... )
+#   - Optional group: [ ... ]
+#   - Rule name delimiter: { NAME }
+#     - useful for intra-token matches
+#   - Regex: / ... /
+#   - Regex negation: !/ ... /
+# NOTE: scanner-less parser since just taking tokens straight from argv.
+# Might use to generate the parser in the future.
+expr: or
+or: and "-o" or | and
+and: not ["-a"] and | not
+not: "!" not | paren
+paren: "(" expr ")" | pred
+pred: "-cmd" cmd_arg_list ";"
+    | ("-in" | "-child-of") path
+    | ("-under" | "-descendant-of") path
+    | "-has" {metadata_field}[{metadata_operator}{metadata_value}]
+cmd_arg_list: cmd_arg cmd_arg_list | cmd_arg
+# in one argv arg
+cmd_arg: !/^;$/
+metadata_operator: "=" | "!="

@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import argparse
 import os
-from typing import Dict, Optional, Tuple
+import re
+import string
+from dataclasses import dataclass
+from typing import IO, Dict, List, Optional, Tuple, Union
 
 from .._package import __version__
 from ..metadata import (
@@ -145,3 +148,77 @@ IGNORE_HOTKEY_ERRORS: Dict[str, bool] = {
     "conflicting_permutations": False,
     "maybe_invalid_keysyms": False,
 }
+
+
+@dataclass
+class ReplaceStrEvaluator:
+    """Evaluator for command lines containing replacement strings."""
+
+    hotkey: str
+    command: str
+    re: re.Pattern[str]
+
+    def __init__(self, hotkey: str, command: str):
+        self.hotkey = hotkey
+        self.command = command
+        groups = [
+            f"(?P<hk>{re.escape(hotkey)})",
+            f"(?P<cmd>{re.escape(command)})",
+            "(?P<rest>.)",
+        ]
+        self.re = re.compile("|".join(groups))
+
+    def eval(
+        self,
+        args: List[str],
+        hotkey: str,
+        cmd_file: Union[str, IO[str]],
+    ) -> List[str]:
+        """Substitute any occurrences of the replacement strings in `args` with `hotkey` and (the name of) `cmd_file`."""
+        out_args = []
+        for arg in args:
+            new_arg = ""
+            for m in self.re.finditer(arg):
+                if m.group("hk"):
+                    new_arg += hotkey
+                elif m.group("cmd"):
+                    if isinstance(cmd_file, str):
+                        new_arg += cmd_file
+                    else:
+                        new_arg += cmd_file.name
+                else:
+                    new_arg += m.group("rest")
+            out_args.append(new_arg)
+        return out_args
+
+
+def _parse_repl_str(repl: str) -> str:
+    if set(string.whitespace) <= set(repl):
+        raise argparse.ArgumentTypeError(
+            "replacement string cannot contain whitespace"
+        )
+    return repl
+
+
+def add_repl_str_options(parser: argparse.ArgumentParser) -> None:
+    """Add replacement string options to `parser`.
+
+    These options are added in this separate function rather than added to
+    `BASE_PARSER` directly, because not all tools need it.
+    """
+    parser.add_argument(
+        "--hotkey-replace-str",
+        "-H",
+        default="@",
+        action="store",
+        type=_parse_repl_str,
+        help="set replacement string for hotkey text",
+    )
+    parser.add_argument(
+        "--command-replace-str",
+        "-C",
+        default="%",
+        action="store",
+        type=_parse_repl_str,
+        help="set replacement string for the filename of the command text",
+    )
