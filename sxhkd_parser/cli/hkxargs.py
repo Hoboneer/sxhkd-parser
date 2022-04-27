@@ -407,8 +407,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                     print(result.stderr, end="", file=sys.stderr)
 
             if cmd and not failed:
+                # Escape braces in command.
+                # NOTE: At this point, `cmd` is clean and without spans, so any
+                # existing backslashes are literal.
+                if namespace.mode == "edit":
+                    cmd = cmd.replace("{", "\\{").replace("}", "\\}")
+
                 if not namespace.exclude_synchronous_marker and synchronous:
                     cmd = f";{cmd}"
+
                 if not cmd.endswith("\n"):
                     end = "\n"
                 else:
