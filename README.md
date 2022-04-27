@@ -3,18 +3,15 @@
 sxhkd-parser is a mostly complete library written in Python for parsing
 [sxhkd](https://github.com/baskerville/sxhkd) configs.
 
-## Future uses
-
-  - Export keybinds to markdown, html, etc.
-  - Search for keybinds
-  - Programmatically modify or merge keybinds
-  - Keep track of mode for use in status bar, etc.
-
 ## Bundled tools
 
 - `hkcheck`: Lint your keybinds.
-- `hkexport`: Export your keybinds to various formats including HTML and plaintext.
+- `hkexport`: Export your keybinds to various formats including HTML and
+  plaintext.
 - `hkwatch`: Tail the sxhkd status fifo and output the current mode.
+- `hkfind`: Get hotkeys that match given search criteria.
+- `hkxargs`: Execute commands on a keybind's command for editing them,
+  retrieving some information from them, or running linters on them.
 
 For more, see the modules prefixed with `hk` in `sxhkd_parser/cli/`.
 
