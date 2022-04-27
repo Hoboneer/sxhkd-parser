@@ -8,7 +8,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -16,7 +15,6 @@ from typing import (
     IO,
     ClassVar,
     Container,
-    Deque,
     Dict,
     Iterable,
     List,
@@ -312,7 +310,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
 
     code = 0
-    procs: Deque[subprocess.Popen[str]] = deque()
+    procs: List[subprocess.Popen[str]] = []
     with tempfile.TemporaryDirectory() as tmpdir:
         for hk in get_perms_to_exec(sys.stdin, keybinds):
             bind, cmd, synchronous = keybinds[hk]
@@ -449,26 +447,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                     prefix = "\t"
                 print(f"{prefix}{cmd}", end=end)
 
-    # Clean up any short-lived subprocesses.
-    i = len(procs) - 1
-    while i >= 0:
-        ret = procs[i].poll()
-        if ret is None:
-            i -= 1
-            continue
-        print(procs[i].stderr, end="", file=sys.stderr)
-        if ret != 0:
-            if 1 <= ret <= 125:
-                code = CODE_1_125
-            elif ret < 0:
-                code = CODE_SIGNAL
-            else:
-                code = CODE_CANNOT_RUN
-            code -= 64
-        del procs[i]
-        i -= 1
-
-    # Ensure any long-running subprocesses don't hang.
+    # Clean up any short-lived processes while ensuring that any long-running
+    # subprocesses don't hang.
     with ThreadPoolExecutor() as executor:
         for errs, proc_code in executor.map(wait_on_proc, procs):
             print(errs, end="", file=sys.stderr)
