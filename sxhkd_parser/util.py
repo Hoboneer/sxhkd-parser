@@ -168,7 +168,9 @@ def read_sxhkdrc(
     except Exception:
         raise
     finally:
-        if section_handler is not None:
-            section_handler.push_eof(line_no)
-        if close_io:
-            f.close()
+        try:
+            if section_handler is not None:
+                section_handler.push_eof(line_no)
+        finally:
+            if close_io:
+                f.close()
