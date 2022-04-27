@@ -7,12 +7,15 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
     IO,
     ClassVar,
     Container,
+    Deque,
     Dict,
     Iterable,
     List,
@@ -232,6 +235,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="execute keybind command text after modification by the command from argv",
     )
     parser.add_argument(
+        "--delay",
+        "-d",
+        default=0,
+        type=float,
+        help="wait DELAY seconds between each --exec command invocation",
+    )
+    parser.add_argument(
         "command",
         nargs=argparse.REMAINDER,
     )
@@ -287,6 +297,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
 
     code = 0
+    procs: Deque[subprocess.Popen[str]] = deque()
     with tempfile.TemporaryDirectory() as tmpdir:
         for hk in get_perms_to_exec(sys.stdin, keybinds):
             bind, cmd, synchronous = keybinds[hk]
@@ -378,25 +389,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                 # which subprocess out of the intrinsic one and the --exec/-e
                 # one errored.
                 try:
-                    result = subprocess.run(
+                    newproc = subprocess.Popen(
                         cmdline,
-                        capture_output=True,
                         text=True,
-                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.PIPE,
                     )
-                except subprocess.CalledProcessError as e:
-                    if 1 <= e.returncode <= 125:
-                        code = CODE_1_125
-                    elif e.returncode < 0:
-                        code = CODE_SIGNAL
-                    else:
-                        code = CODE_CANNOT_RUN
-                    print(
-                        e.stderr,
-                        end="",
-                        file=sys.stderr,
-                    )
-                    code -= 64
                 except FileNotFoundError as e:
                     print(e, file=sys.stderr)
                     code = CODE_NOT_FOUND - 64
@@ -404,7 +402,32 @@ def main(argv: Optional[List[str]] = None) -> int:
                     print(e, file=sys.stderr)
                     return CODE_OTHER + 1
                 else:
-                    print(result.stderr, end="", file=sys.stderr)
+                    if synchronous:
+                        newproc.wait()
+                        print(newproc.stderr, end="", file=sys.stderr)
+                        if newproc.returncode != 0:
+                            if 1 <= newproc.returncode <= 125:
+                                code = CODE_1_125
+                            elif newproc.returncode < 0:
+                                code = CODE_SIGNAL
+                            else:
+                                code = CODE_CANNOT_RUN
+                            code -= 64
+                    else:
+                        procs.append(newproc)
+
+                while procs and procs[0].poll() is not None:
+                    completed = procs.popleft()
+                    print(completed.stderr, end="", file=sys.stderr)
+                    if completed.returncode != 0:
+                        if 1 <= completed.returncode <= 125:
+                            code = CODE_1_125
+                        elif completed.returncode < 0:
+                            code = CODE_SIGNAL
+                        else:
+                            code = CODE_CANNOT_RUN
+                    code -= 64
+                time.sleep(namespace.delay)
 
             if cmd and not failed:
                 # Escape braces in command.
@@ -425,6 +448,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                 else:
                     prefix = "\t"
                 print(f"{prefix}{cmd}", end=end)
+
+    for leftover in procs:
+        leftover.wait()
+        print(leftover.stderr, end="", file=sys.stderr)
+        if leftover.returncode != 0:
+            if 1 <= leftover.returncode <= 125:
+                code = CODE_1_125
+            elif leftover.returncode < 0:
+                code = CODE_SIGNAL
+            else:
+                code = CODE_CANNOT_RUN
+        code -= 64
 
     # Just return the latest exit code.
     # POSIX xargs doesn't specify it, so this xargs-like tool can do whatever.
