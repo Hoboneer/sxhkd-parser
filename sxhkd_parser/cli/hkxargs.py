@@ -392,8 +392,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                     newproc = subprocess.Popen(
                         cmdline,
                         text=True,
+                        stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.PIPE,
+                        start_new_session=True,
                     )
                 except FileNotFoundError as e:
                     print(e, file=sys.stderr)
@@ -403,8 +405,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                     return CODE_OTHER + 1
                 else:
                     if synchronous:
-                        newproc.wait()
-                        print(newproc.stderr, end="", file=sys.stderr)
+                        # Synchronous command may be long-running, so ensure it doesn't hang.
+                        _, errs = newproc.communicate()
+                        print(errs, end="", file=sys.stderr)
                         if newproc.returncode != 0:
                             if 1 <= newproc.returncode <= 125:
                                 code = CODE_1_125
@@ -415,18 +418,6 @@ def main(argv: Optional[List[str]] = None) -> int:
                             code -= 64
                     else:
                         procs.append(newproc)
-
-                while procs and procs[0].poll() is not None:
-                    completed = procs.popleft()
-                    print(completed.stderr, end="", file=sys.stderr)
-                    if completed.returncode != 0:
-                        if 1 <= completed.returncode <= 125:
-                            code = CODE_1_125
-                        elif completed.returncode < 0:
-                            code = CODE_SIGNAL
-                        else:
-                            code = CODE_CANNOT_RUN
-                        code -= 64
                 time.sleep(namespace.delay)
 
             if cmd and not failed:
@@ -449,9 +440,30 @@ def main(argv: Optional[List[str]] = None) -> int:
                     prefix = "\t"
                 print(f"{prefix}{cmd}", end=end)
 
+    # Clean up any short-lived subprocesses.
+    i = len(procs) - 1
+    while i >= 0:
+        ret = procs[i].poll()
+        if ret is None:
+            i -= 1
+            continue
+        print(procs[i].stderr, end="", file=sys.stderr)
+        if ret != 0:
+            if 1 <= ret <= 125:
+                code = CODE_1_125
+            elif ret < 0:
+                code = CODE_SIGNAL
+            else:
+                code = CODE_CANNOT_RUN
+            code -= 64
+        del procs[i]
+        i -= 1
+
+    # Ensure any long-running subprocesses don't hang.
+    # TODO: maybe call .communicate() on each leftover process in worker threads?
     for leftover in procs:
-        leftover.wait()
-        print(leftover.stderr, end="", file=sys.stderr)
+        _, errs = leftover.communicate()
+        print(errs, end="", file=sys.stderr)
         if leftover.returncode != 0:
             if 1 <= leftover.returncode <= 125:
                 code = CODE_1_125
