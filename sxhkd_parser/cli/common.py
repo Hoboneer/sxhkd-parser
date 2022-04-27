@@ -131,7 +131,7 @@ def process_args(
         metadata_parser = SimpleDescriptionParser(namespace.description)
     elif namespace.metadata_type == "key-value":
         if not namespace.pair or not namespace.empty:
-            raise RuntimeError("got no description regex")
+            raise RuntimeError("got no pair regex or no empty regex")
         metadata_parser = KeyValueMetadataParser(
             namespace.pair, namespace.empty
         )

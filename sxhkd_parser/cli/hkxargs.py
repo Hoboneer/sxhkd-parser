@@ -64,7 +64,7 @@ def get_perms_to_exec(file: IO[str], keybinds: KeybindDict) -> Iterable[str]:
             yield norm_str
 
 
-class ParserLinterFormatMode(Enum):
+class LinterFormatParseMode(Enum):
     NORMAL = auto()
     NEED_LBRACE = auto()
     NEED_CHAR = auto()
@@ -92,18 +92,18 @@ class LinterFormatField:
 
 def parse_linter_format(format: str) -> List[Union[str, LinterFormatField]]:
     spans: List[Union[str, LinterFormatField]] = [""]
-    mode = ParserLinterFormatMode.NORMAL
+    mode = LinterFormatParseMode.NORMAL
     for c in format:
-        if mode == ParserLinterFormatMode.NORMAL:
+        if mode == LinterFormatParseMode.NORMAL:
             assert isinstance(
                 spans[-1], str
             ), f"non-str latest span in mode {mode}"
 
             if c == "%":
-                mode = ParserLinterFormatMode.NEED_LBRACE
+                mode = LinterFormatParseMode.NEED_LBRACE
             else:
                 spans[-1] += c
-        elif mode == ParserLinterFormatMode.NEED_LBRACE:
+        elif mode == LinterFormatParseMode.NEED_LBRACE:
             assert isinstance(
                 spans[-1], str
             ), f"non-str latest span in mode {mode}"
@@ -111,15 +111,15 @@ def parse_linter_format(format: str) -> List[Union[str, LinterFormatField]]:
             # Allow escaping '%' chars.
             if c == "%":
                 spans[-1] += c
-                mode = ParserLinterFormatMode.NORMAL
+                mode = LinterFormatParseMode.NORMAL
             elif c == "{":
                 if spans[-1] == "":
                     spans.pop()
                 spans.append(LinterFormatField(""))
-                mode = ParserLinterFormatMode.NEED_CHAR
+                mode = LinterFormatParseMode.NEED_CHAR
             else:
                 raise ValueError(c)
-        elif mode == ParserLinterFormatMode.NEED_CHAR:
+        elif mode == LinterFormatParseMode.NEED_CHAR:
             assert c not in (
                 "{",
                 "}",
@@ -130,8 +130,8 @@ def parse_linter_format(format: str) -> List[Union[str, LinterFormatField]]:
             ), f"non-field-span latest span in mode {mode}"
 
             spans[-1].field += c
-            mode = ParserLinterFormatMode.NEED_CHAR_OR_RBRACE
-        elif mode == ParserLinterFormatMode.NEED_CHAR_OR_RBRACE:
+            mode = LinterFormatParseMode.NEED_CHAR_OR_RBRACE
+        elif mode == LinterFormatParseMode.NEED_CHAR_OR_RBRACE:
             assert c not in ("{", "%"), f"special char in field name {c!r}"
             assert isinstance(
                 spans[-1], LinterFormatField
@@ -141,7 +141,7 @@ def parse_linter_format(format: str) -> List[Union[str, LinterFormatField]]:
             if c == "}":
                 spans[-1].validate()
                 spans.append("")
-                mode = ParserLinterFormatMode.NORMAL
+                mode = LinterFormatParseMode.NORMAL
             else:
                 spans[-1].field += c
     if isinstance(spans[-1], str) and spans[-1] == "":
@@ -426,7 +426,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                             code = CODE_SIGNAL
                         else:
                             code = CODE_CANNOT_RUN
-                    code -= 64
+                        code -= 64
                 time.sleep(namespace.delay)
 
             if cmd and not failed:
@@ -459,7 +459,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 code = CODE_SIGNAL
             else:
                 code = CODE_CANNOT_RUN
-        code -= 64
+            code -= 64
 
     # Just return the latest exit code.
     # POSIX xargs doesn't specify it, so this xargs-like tool can do whatever.

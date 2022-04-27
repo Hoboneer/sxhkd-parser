@@ -20,7 +20,7 @@ pred: "-cmd" cmd_arg_list ";"
     | ("-in" | "-child-of") path
     | ("-under" | "-descendant-of") path
     | "-has" {metadata_field}[{metadata_operator}{metadata_value}]
-cmd_arg_list: cmd_arg cmd_arg_list | cmd_arg
+cmd_arg_list: cmd_arg [cmd_arg_list]
 # in one argv arg
 cmd_arg: !/^;$/
 metadata_operator: "=" | "!="
