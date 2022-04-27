@@ -14,6 +14,9 @@ requirements:
 clean-requirements:
 	make -C requirements clean
 
+.PHONY: keysyms
+keysyms:
+	make -C keysyms
 
 tags: $(SOURCE_FILES)
 	ctags $(SOURCE_FILES)
@@ -50,7 +53,7 @@ clean:
 	-rm -fr dist/
 
 .PHONY: dist
-dist: format check-dev
+dist: keysyms format check-dev
 	python setup.py sdist bdist_wheel
 	twine check dist/*
 
