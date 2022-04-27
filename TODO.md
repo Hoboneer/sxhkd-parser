@@ -1,5 +1,3 @@
-- support the special pointer keysyms `button{1-24}`
-
 - warn in some linter tool if two hotkeys with identical chains except the last differ by their value of `noabort`?
   - prerequisite: noabort used after *only* the second-to-last chord
 

@@ -9,7 +9,13 @@ keysyms.py: XF86keysym.h keysymdef.h
 		  echo "from typing import Set"; echo ""; \
 		  echo '__all__ = ["KEYSYMS"]'; echo ""; \
 		  echo "KEYSYMS: Set[str] = {"; \
-		  sed -e 's/^/    "/' -e 's/$$/",/'; \
+		  { cat; \
+		    i=1; \
+		    while [ "$$i" -le 24 ]; do \
+		      echo "button$$i"; \
+		      i=$$(( i + 1 )); \
+		    done; \
+		  } | sed -e 's/^/    "/' -e 's/$$/",/'; \
 		  echo "}"; } > $@
 
 clean:
