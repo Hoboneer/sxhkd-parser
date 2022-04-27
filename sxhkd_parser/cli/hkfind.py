@@ -5,7 +5,6 @@ import subprocess
 import sys
 import tempfile
 from collections import deque
-from contextlib import redirect_stdout
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -512,6 +511,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         parents=[BASE_PARSER],
     )
     add_repl_str_options(parser)
+    parser.add_argument(
+        "--print-expression-tree",
+        "-T",
+        action="store_true",
+        help="print parsed tree for the search expression and exit",
+    )
 
     # Separate options from the search expression.
     if argv is None:
@@ -530,10 +535,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     expr: Optional[Expression]
     if raw_expr:
         expr = Expression.from_args(raw_expr)
-        with redirect_stdout(sys.stderr):
-            expr.print()
     else:
         expr = None
+    if namespace.print_expression_tree:
+        if expr is not None:
+            expr.print()
+        return 0
 
     for bind_or_err in read_sxhkdrc(
         namespace.sxhkdrc,
