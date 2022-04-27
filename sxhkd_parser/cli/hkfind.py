@@ -71,11 +71,8 @@ class OrExpression(Expression):
 
     @classmethod
     def from_args(cls, args: Deque[str]) -> Expression:
-        print("parsing or", args, file=sys.stderr)
-
         assert args[0] not in ("-o", "-a"), args
         maybe_lhs = AndExpression.from_args(args)
-        print("maybe lhs of or", maybe_lhs, file=sys.stderr)
         # Backtrack in case this is not an OR.
         if not args:
             return maybe_lhs
@@ -84,9 +81,7 @@ class OrExpression(Expression):
         if args[0] == "-o":
             args.popleft()
             rhs = cls.from_args(args)
-            print("rhs of or", rhs, file=sys.stderr)
             out_expr = cls(maybe_lhs, rhs)
-            print("or", out_expr, file=sys.stderr)
             return out_expr
         else:
             return AndExpression.from_args(args, lhs=maybe_lhs)
@@ -117,16 +112,12 @@ class AndExpression(Expression):
     def from_args(
         cls, args: Deque[str], lhs: Optional[Expression] = None
     ) -> Expression:
-        print("parsing and", args, lhs, file=sys.stderr)
         assert args[0] != "-o"
         if lhs is None:
             lhs = NotExpression.from_args(args)
             # Backtrack in case this is not an AND.
             if not args:
                 return lhs
-            print("lhs of and", lhs, file=sys.stderr)
-        else:
-            print("non-null lhs of and", lhs, file=sys.stderr)
         # Allow ANDing via juxtaposition
         if args[0] == "-a":
             args.popleft()
@@ -137,9 +128,7 @@ class AndExpression(Expression):
         elif args[0] in ("-o", ")"):
             return lhs
         rhs = cls.from_args(args)
-        print("rhs of and", rhs, file=sys.stderr)
         out_expr = cls(lhs, rhs)
-        print("and", out_expr, file=sys.stderr)
         return out_expr
 
     def match(
@@ -166,7 +155,6 @@ class NotExpression(Expression):
     @classmethod
     def from_args(cls, args: Deque[str]) -> Expression:
         if args[0] == "!":
-            print("parsing not", args, file=sys.stderr)
             args.popleft()
             subexpr = cls.from_args(args)
             return cls(subexpr)
@@ -202,7 +190,6 @@ class _ParenExpression(Expression):
     @classmethod
     def from_args(cls, args: Deque[str]) -> Expression:
         if args[0] == "(":
-            print("parsing paren", args, file=sys.stderr)
             args.popleft()
             subexpr = Expression.from_args(args)
             maybe_rparen = args.popleft()
@@ -234,7 +221,6 @@ class PredicateExpression(Expression):
 
     @classmethod
     def from_args(cls, args: Deque[str]) -> Expression:
-        print("parsing predicate expression", args, file=sys.stderr)
         val = args.popleft()
         try:
             pred_expr_cls = cls._PARSERS[val]
@@ -544,7 +530,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     expr: Optional[Expression]
     if raw_expr:
         expr = Expression.from_args(raw_expr)
-        print(expr, file=sys.stderr)
         with redirect_stdout(sys.stderr):
             expr.print()
     else:
