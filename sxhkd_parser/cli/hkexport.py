@@ -142,22 +142,22 @@ class HTMLEmitter(KeybindEmitter):
                             )
                             yield f'{field_base}<td class="bind">{esc_body(hotkey_str)}</td>'
                         elif field == "mode":
-                            yield f"{field_base}<td class=\"mode\">{esc_body(keybind.metadata.get('mode', 'normal'))}</td>"
+                            yield f'{field_base}<td class="mode">{esc_body(keybind.metadata.get("mode", "normal"))}</td>'
                         elif field == "description" and desc_perms:
                             yield f'{field_base}<td class="field-{esc_attr(field)}">{esc_body(desc_perms[j])}</td>'
                         else:
-                            yield f"{field_base}<td class=\"field-{esc_attr(field)}\">{esc_body(keybind.metadata.get(field, f'<em>No field {field!r}.</em>'))}</td>"
+                            yield f'{field_base}<td class="field-{esc_attr(field)}">{esc_body(keybind.metadata.get(field, f"<em>No field {field!r}.</em>"))}</td>'
                     yield f"{curr_base}</tr>"
             else:
                 yield f'{curr_base}<tr class="hotkey" id="{esc_attr(self._get_id_slug(node))}-{i}">'
                 field_base = curr_base + "  "
                 for field in fields:
                     if field == "hotkey":
-                        yield f"{field_base}<td class=\"bind\">{esc_body(keybind.hotkey.raw if isinstance(keybind.hotkey.raw, str) else ' '.join(keybind.hotkey.raw))}</td>"
+                        yield f'{field_base}<td class="bind">{esc_body(keybind.hotkey.raw if isinstance(keybind.hotkey.raw, str) else " ".join(keybind.hotkey.raw))}</td>'
                     elif field == "mode":
-                        yield f"{field_base}<td class=\"mode\">{esc_body(keybind.metadata.get('mode', 'normal'))}</td>"
+                        yield f'{field_base}<td class="mode">{esc_body(keybind.metadata.get("mode", "normal"))}</td>'
                     else:
-                        yield f"{field_base}<td class=\"field-{esc_attr(field)}\">{esc_body(keybind.metadata.get(field, f'<em>No field {field!r}.</em>'))}</td>"
+                        yield f'{field_base}<td class="field-{esc_attr(field)}">{esc_body(keybind.metadata.get(field, f"<em>No field {field!r}.</em>"))}</td>'
                 yield f"{curr_base}</tr>"
         yield f"{base}</table>"
 
