@@ -146,7 +146,13 @@ class HTMLEmitter(KeybindEmitter):
                         elif field == "description" and desc_perms:
                             yield f'{field_base}<td class="field-{esc_attr(field)}">{esc_body(desc_perms[j])}</td>'
                         else:
-                            yield f'{field_base}<td class="field-{esc_attr(field)}">{esc_body(keybind.metadata.get(field, f"<em>No field {field!r}.</em>"))}</td>'
+                            if field in keybind.metadata:
+                                body = esc_body(keybind.metadata[field])
+                            else:
+                                body = (
+                                    f"<em>No field '{esc_body(field)}'.</em>"
+                                )
+                            yield f'{field_base}<td class="field-{esc_attr(field)}">{body}</td>'
                     yield f"{curr_base}</tr>"
             else:
                 yield f'{curr_base}<tr class="hotkey" id="{esc_attr(self._get_id_slug(node))}-{i}">'
@@ -157,7 +163,11 @@ class HTMLEmitter(KeybindEmitter):
                     elif field == "mode":
                         yield f'{field_base}<td class="mode">{esc_body(keybind.metadata.get("mode", "normal"))}</td>'
                     else:
-                        yield f'{field_base}<td class="field-{esc_attr(field)}">{esc_body(keybind.metadata.get(field, f"<em>No field {field!r}.</em>"))}</td>'
+                        if field in keybind.metadata:
+                            body = esc_body(keybind.metadata[field])
+                        else:
+                            body = f"<em>No field '{esc_body(field)}'.</em>"
+                        yield f'{field_base}<td class="field-{esc_attr(field)}">{body}</td>'
                 yield f"{curr_base}</tr>"
         yield f"{base}</table>"
 
