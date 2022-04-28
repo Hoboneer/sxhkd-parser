@@ -5,7 +5,7 @@ import argparse
 import sys
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Iterable, List, Optional, Set, Type
+from typing import ClassVar, Dict, Iterable, List, Optional, Set, Type
 
 from ..errors import SXHKDParserError
 from ..metadata import SectionTreeNode
@@ -72,6 +72,25 @@ class KeybindEmitter(ABC):
 
 
 class HTMLEmitter(KeybindEmitter):
+    BODY_ESCAPES: ClassVar[Dict[str, str]] = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+    }
+    ATTR_ESCAPES: ClassVar[Dict[str, str]] = {
+        '"': "&quot;",
+        "'": "&apos;",
+    }
+
+    def __init__(
+        self,
+        options: Optional[Iterable[PrintOption]] = None,
+        expand_sequences: bool = False,
+    ):
+        super().__init__(options, expand_sequences)
+        self._body_escapes = str.maketrans(self.BODY_ESCAPES)
+        self._attr_escapes = str.maketrans(self.ATTR_ESCAPES)
+
     def _get_id_slug(self, node: SectionTreeNode) -> str:
         assert isinstance(node.name, str)
         return node.name.lower().replace(" ", "-").replace("/", "-")
@@ -85,8 +104,8 @@ class HTMLEmitter(KeybindEmitter):
             header_num = 6
         assert isinstance(node.name, str)
         id_slug = self._get_id_slug(node)
-        yield f'{"  " * level}<div class="section" id="{id_slug}">'
-        yield f'{"  " * (level+1)}<h{header_num}>{node.name}</h{header_num}>'
+        yield f'{"  " * level}<div class="section" id="{id_slug.translate(self._attr_escapes)}">'
+        yield f'{"  " * (level+1)}<h{header_num}>{node.name.translate(self._body_escapes)}</h{header_num}>'
 
     def emit_node_keybinds(
         self, node: SectionTreeNode, level: int, fields: List[str]
@@ -110,31 +129,31 @@ class HTMLEmitter(KeybindEmitter):
                 else:
                     desc_perms = None
                 for j, perm in enumerate(keybind.hotkey.permutations):
-                    yield f'{curr_base}<tr class="hotkey" id="{self._get_id_slug(node)}-{i}-{j}">'
+                    yield f'{curr_base}<tr class="hotkey" id="{self._get_id_slug(node).translate(self._attr_escapes)}-{i}-{j}">'
                     field_base = curr_base + "  "
                     for field in fields:
                         if field == "hotkey":
                             hotkey_str = Hotkey.static_hotkey_str(
                                 perm, keybind.hotkey.noabort_index
                             )
-                            yield f'{field_base}<td class="bind">{hotkey_str}</td>'
+                            yield f'{field_base}<td class="bind">{hotkey_str.translate(self._body_escapes)}</td>'
                         elif field == "mode":
-                            yield f"{field_base}<td class=\"mode\">{keybind.metadata.get('mode', 'normal')}</td>"
+                            yield f"{field_base}<td class=\"mode\">{keybind.metadata.get('mode', 'normal').translate(self._body_escapes)}</td>"
                         elif field == "description" and desc_perms:
-                            yield f'{field_base}<td class="field-{field}">{desc_perms[j]}</td>'
+                            yield f'{field_base}<td class="field-{field.translate(self._attr_escapes)}">{desc_perms[j].translate(self._body_escapes)}</td>'
                         else:
-                            yield f"{field_base}<td class=\"field-{field}\">{keybind.metadata.get(field, f'<em>No field {field!r}.</em>')}</td>"
+                            yield f"{field_base}<td class=\"field-{field.translate(self._attr_escapes)}\">{keybind.metadata.get(field, f'<em>No field {field!r}.</em>').translate(self._body_escapes)}</td>"
                     yield f"{curr_base}</tr>"
             else:
-                yield f'{curr_base}<tr class="hotkey" id="{self._get_id_slug(node)}-{i}">'
+                yield f'{curr_base}<tr class="hotkey" id="{self._get_id_slug(node).translate(self._attr_escapes)}-{i}">'
                 field_base = curr_base + "  "
                 for field in fields:
                     if field == "hotkey":
-                        yield f"{field_base}<td class=\"bind\">{keybind.hotkey.raw if isinstance(keybind.hotkey.raw, str) else ' '.join(keybind.hotkey.raw)}</td>"
+                        yield f"{field_base}<td class=\"bind\">{keybind.hotkey.raw.translate(self._body_escapes) if isinstance(keybind.hotkey.raw, str) else ' '.join(keybind.hotkey.raw).translate(self._body_escapes)}</td>"
                     elif field == "mode":
-                        yield f"{field_base}<td class=\"mode\">{keybind.metadata.get('mode', 'normal')}</td>"
+                        yield f"{field_base}<td class=\"mode\">{keybind.metadata.get('mode', 'normal').translate(self._body_escapes)}</td>"
                     else:
-                        yield f"{field_base}<td class=\"field-{field}\">{keybind.metadata.get(field, f'<em>No field {field!r}.</em>')}</td>"
+                        yield f"{field_base}<td class=\"field-{field.translate(self._attr_escapes)}\">{keybind.metadata.get(field, f'<em>No field {field!r}.</em>').translate(self._body_escapes)}</td>"
                 yield f"{curr_base}</tr>"
         yield f"{base}</table>"
 
