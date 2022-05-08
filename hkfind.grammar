@@ -1,7 +1,7 @@
 # Rough grammar with non-standard syntax for hkfind expressions.
 # SYNTAX:
 #   - Separate different tokens by whitespace, but if *not* separated by whitespace, match *within* a token.
-#   - Unnamed non-terminal token: " ... "
+#   - Unnamed terminal token: " ... "
 #   - Disjunction: ... | ...
 #   - Grouping: ( ... )
 #   - Optional group: [ ... ]
