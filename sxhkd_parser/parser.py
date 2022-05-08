@@ -273,7 +273,6 @@ def expand_sequences(
                 spans[-1] += c  # type: ignore
             elif mode == _SequenceParseMode.NORMAL_ESCAPE_NEXT:
                 # Sequences can be escaped in normal mode, so the backslash shouldn't remain.
-                # There are no nested sequences, so nothing to be done for sequence mode.
                 if c in ("{", "}"):
                     # The last character was a backslash, so replace it.
                     spans[-1] = spans[-1][:-1] + c  # type: ignore
@@ -308,7 +307,12 @@ def expand_sequences(
                 seq[-1] += c
             elif mode == _SequenceParseMode.SEQUENCE_ESCAPE_NEXT:
                 seq = cast("List[str]", spans[-1])
-                seq[-1] += c
+                # Allow escaping special sequence characters while within a sequence.
+                if c in "{},":
+                    # The last character was a backslash, so replace it.
+                    seq[-1] = seq[-1][:-1] + c
+                else:
+                    seq[-1] += c
                 mode = _SequenceParseMode.SEQUENCE
     if mode != _SequenceParseMode.NORMAL:
         _err("Input ended while parsing a sequence or escaping a character")
