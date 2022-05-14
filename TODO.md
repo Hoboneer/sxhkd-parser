@@ -29,3 +29,20 @@
     running checks on the `Hotkey` and `Command` objects
   - e.g., allows converting error messages such that the errors can be
     pinpointed in the input file, including the sequence number
+- lib: Use "expanded" or "flat" instead of "static" for stuff like
+  `parse_static_hotkey`---it's clearer that the hotkey should have no sequences
+- lib: Maybe change interface of section handlers to require calling a method
+  to update the line counter upon reading each line?
+  - so that no arguments need to passed upon EOF---just look at current state
+  - to allow for use as a context manager
+  - something like `tick()` or `update(...)` to allow for a more detailed
+    "tick" interface in the future?
+    - e.g., set step size
+    - e.g., allow multiple section handlers per file? (e.g., for merging
+      configs)
+- lib: Allow easy pretty-printing of configs with configurable output
+  formatting with regard to metadata and section comments
+- lib: Read config file formatting config (e.g., section handler config) from
+  comments at top of file as well
+  - to allow for easy use of tools like my `hk*` programs without having to set
+    up a way to include the parser args with every call
