@@ -1241,6 +1241,9 @@ class Hotkey:
                 "ATSIGN": (_HotkeyParseMode.KEYSYM_NAME, on_ATSIGN),
                 "KEYSYM": (_HotkeyParseMode.CHORD, on_KEYSYM),
             },
+            _HotkeyParseMode.KEYSYM_NAME: {
+                "KEYSYM": (_HotkeyParseMode.CHORD, on_KEYSYM),
+            },
             _HotkeyParseMode.CHORD: {
                 "SEMICOLON": (
                     _HotkeyParseMode.MODIFIER_NAME,
