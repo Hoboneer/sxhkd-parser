@@ -1101,8 +1101,15 @@ class Hotkey:
         """
         hotkey = ""
         for i, chord in enumerate(chain):
+            keysym_prefix = ""
+            if chord.replay:
+                keysym_prefix += "~"
+            if chord.run_event == ChordRunEvent.KEYRELEASE:
+                keysym_prefix += "@"
             hotkey += " + ".join(
-                it.chain(sorted(chord.modifiers), [chord.keysym])
+                it.chain(
+                    sorted(chord.modifiers), [keysym_prefix + chord.keysym]
+                )
             )
             if noabort_index is not None and i == noabort_index:
                 hotkey += ": "
