@@ -293,7 +293,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             keybinds[norm_str] = (
                 bind_or_err,
-                cmdperm,
+                str(cmdperm),
                 bind_or_err.command.synchronous,
             )
 

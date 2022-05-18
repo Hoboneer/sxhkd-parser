@@ -68,10 +68,84 @@ __all__ = [
     "KeypressTreeModifierSetNode",
     "KeypressTreeNode",
     "KeypressTreeReplayNode",
+    "SequenceSpan",
+    "Span",
+    "SpanPermutation",
     "SpanTree",
+    "TextSpan",
     "expand_range",
     "expand_sequences",
 ]
+
+
+@dataclass
+class Span:
+    """Span of text that separates sequences and non-sequence text.
+
+    This also contains line and column information to allow for exact positions
+    if necessary for error messages.
+
+    Instance variables:
+        line: the line number.
+        col: the column number.
+    """
+
+    line: int = -1
+    col: int = -1
+
+    @property
+    def pos(self) -> Tuple[int, int]:
+        """Return line and column as a tuple."""
+        return (self.line, self.col)
+
+    @pos.setter
+    def pos(self, position: Tuple[int, int]) -> None:
+        self.line, self.col = position
+
+
+@dataclass
+class TextSpan(Span):
+    """A string of non-sequence text.
+
+    Instance variables:
+        text: the string of text.
+        is_expansion: whether this span was the result of range expansion, meaning it has no line and col--their values are undefined.
+    """
+
+    text: str = ""
+    is_expansion: bool = False
+
+
+@dataclass
+class SequenceSpan(Span):
+    """A sequence of text that itself contains further `TextSpan` objects.
+
+    Instance variables:
+        choices: the list of `TextSpan` objects in order of their appearance.
+    """
+
+    choices: List[TextSpan] = field(default_factory=list)
+
+
+@dataclass
+class SpanPermutation:
+    """A permutation of some text after sequence expansion.
+
+    Instance variables:
+        spans: the list of `TextSpan` objects comprising the permutation--sequences are irrelevant here.
+        sequence_choices: the list of choices made at each sequence span, taking `None` at non-sequence spans.
+    """
+
+    spans: List[TextSpan]
+    # Each element corresponds to the element of the same index in `spans`.
+    # `sequence_choices[i] is None` if `spans[i]` is a `TextSpan`.
+    sequence_choices: List[Optional[int]]
+
+    def __str__(self) -> str:
+        # Ensure empty sequence elements don't appear at all.
+        return "".join(
+            span.text if span.text != "_" else "" for span in self.spans
+        )
 
 
 @dataclass
@@ -82,63 +156,67 @@ class SpanTree:
     `expand_sequences`.
 
     Instance variables:
-        levels: the levels of the decision tree, each of which is either a string or a list of strings.
+        levels: the levels of the decision tree, each of which is a `Span` object.
     """
 
-    levels: List[Union[str, List[str]]]
+    levels: List[Span]
 
-    def __init__(self, levels: List[Union[str, List[str]]]):
+    def __init__(self, levels: List[Span]):
         """Create an instance from a list representing a decision tree.
 
-        Each element of the list represents the levels of the decision tree,
-        which may be single strings for parts of the original input that
-        weren't contained in sequences, or lists of strings for those parts
-        that were.
+        Each element of the list represents the levels of the decision tree and
+        are stored as `Span` objects, which are, in addition to line and column
+        information, essentially:
 
-        For sxhkdrc sequences, each node on a given level of the decision tree
-        has the same children as every other node sharing its level.
+            - single strings for parts of the original input that weren't
+              contained in sequences; or
+            - lists of strings for those parts that were.
+
+        Each node on a given level of the decision tree has the same children
+        as every other node sharing its level.
         """
         self.levels = levels
 
     @staticmethod
     def _generate_permutations_rec(
-        curr_levels: List[Union[str, List[str]]]
-    ) -> List[str]:
+        curr_levels: List[Span],
+    ) -> List[SpanPermutation]:
         level, *rest = curr_levels
         # Whether it's the last level or not.
         if not rest:
-            if isinstance(level, str):
-                return [level]
+            if isinstance(level, TextSpan):
+                return [SpanPermutation([level], [None])]
             else:
-                out = []
-                for choice in level:
-                    # The empty sequence element needs to still be in the list
-                    # so that the branches aren't messed up.
-                    if choice == "_":
-                        out.append("")
-                    else:
-                        out.append(choice)
-                return out
-        perms: List[str] = []
-        if isinstance(level, str):
-            perms.extend(
-                level + subperm
-                for subperm in SpanTree._generate_permutations_rec(rest)
-            )
-        else:
-            assert isinstance(level, list)
-            for choice in level:
-                # The empty sequence element needs to still be in the list
-                # so that the branches aren't messed up.
-                if choice == "_":
-                    choice = ""
-                perms.extend(
-                    choice + subperm
-                    for subperm in SpanTree._generate_permutations_rec(rest)
+                assert isinstance(level, SequenceSpan)
+                return [
+                    SpanPermutation([choice], [i])
+                    for i, choice in enumerate(level.choices)
+                ]
+        perms: List[SpanPermutation] = []
+        subperms = SpanTree._generate_permutations_rec(rest)
+        if isinstance(level, TextSpan):
+            for subperm in subperms:
+                perms.append(
+                    SpanPermutation(
+                        [level] + subperm.spans,
+                        cast("List[Optional[int]]", [None])
+                        + subperm.sequence_choices,
+                    )
                 )
+        else:
+            assert isinstance(level, SequenceSpan)
+            for i, choice in enumerate(level.choices):
+                for subperm in subperms:
+                    perms.append(
+                        SpanPermutation(
+                            [choice] + subperm.spans,
+                            cast("List[Optional[int]]", [i])
+                            + subperm.sequence_choices,
+                        )
+                    )
         return perms
 
-    def generate_permutations(self) -> List[str]:
+    def generate_permutations(self) -> List[SpanPermutation]:
         """Return all the permutations of the text in order.
 
         Each permutation is the path from the root to a leaf.
@@ -147,19 +225,17 @@ class SpanTree:
         return SpanTree._generate_permutations_rec(self.levels)
 
     @staticmethod
-    def _print_tree_rec(
-        curr_levels: List[Union[str, List[str]]], level: int
-    ) -> None:
+    def _print_tree_rec(curr_levels: List[Span], level: int) -> None:
         if not curr_levels:
             return
         curr_level, *rest = curr_levels
-        if isinstance(curr_level, str):
-            print(f"{' ' * (level)}└{'─' * (level)} {curr_level!r}")
+        if isinstance(curr_level, TextSpan):
+            print(f"{' ' * (level)}└{'─' * (level)} {curr_level.text!r}")
             SpanTree._print_tree_rec(rest, level + 1)
         else:
-            assert isinstance(curr_level, list)
-            for choice in curr_level:
-                print(f"{' ' * (level)}└{'─' * (level)} {choice!r}")
+            assert isinstance(curr_level, SequenceSpan)
+            for choice in curr_level.choices:
+                print(f"{' ' * (level)}└{'─' * (level)} {choice.text!r}")
                 SpanTree._print_tree_rec(rest, level + 1)
 
     def print_tree(self) -> None:
@@ -235,7 +311,8 @@ def expand_sequences(
         assert lines
         assert "\n" not in lines[0], repr(lines[0])
     # Spans of normal text and sequence text (i.e., choices of text).
-    spans: List[Union[str, List[str]]] = [""]
+    spans: List[Optional[Span]] = [None]
+    currseqspans: List[Optional[TextSpan]] = [None]
     mode = _SequenceParseMode.NORMAL
 
     # Only shift for the first row.
@@ -245,12 +322,16 @@ def expand_sequences(
         else:
             return col
 
+    def _curr_pos() -> Tuple[int, int]:
+        return (start_line + row, _get_shifted_column())
+
     def _err(msg: str) -> NoReturn:
+        pos = _curr_pos()
         err = SequenceParseError(
             msg,
             text=" ".join(lines),
-            line=start_line + row,
-            column=_get_shifted_column(),
+            line=pos[0],
+            column=pos[1],
         )
         raise err
 
@@ -263,64 +344,85 @@ def expand_sequences(
                 elif c == "{":
                     mode = _SequenceParseMode.SEQUENCE
                     # Reuse the slot if unused.
-                    if spans[-1] == "":
-                        spans[-1] = [""]
-                    else:
-                        spans.append([""])
+                    if spans[-1] is None:
+                        del spans[-1]
+                    spans.append(
+                        SequenceSpan(
+                            *_curr_pos(),
+                        )
+                    )
                     continue
                 elif c == "\\":
                     mode = _SequenceParseMode.NORMAL_ESCAPE_NEXT
-                spans[-1] += c  # type: ignore
+                if spans[-1] is None:
+                    spans[-1] = TextSpan(*_curr_pos(), text=c)
+                else:
+                    assert isinstance(spans[-1], TextSpan)
+                    spans[-1].text += c
             elif mode == _SequenceParseMode.NORMAL_ESCAPE_NEXT:
+                assert isinstance(spans[-1], TextSpan)
                 # Sequences can be escaped in normal mode, so the backslash shouldn't remain.
                 if c in ("{", "}"):
                     # The last character was a backslash, so replace it.
-                    spans[-1] = spans[-1][:-1] + c  # type: ignore
+                    spans[-1].text = spans[-1].text[:-1] + c
                 else:
-                    spans[-1] += c  # type: ignore
+                    spans[-1].text += c
                 mode = _SequenceParseMode.NORMAL
             elif mode == _SequenceParseMode.SEQUENCE:
                 if c == "{":
                     _err(
                         "No nested sequences allowed (see https://github.com/baskerville/sxhkd/issues/67)"
                     )
-                seq = cast("List[str]", spans[-1])
-                if c == ",":
-                    expanded_seq = expand_range(seq[-1])
+                assert isinstance(spans[-1], SequenceSpan)
+                if c in ",}":
+                    if currseqspans[-1] is None:
+                        # TODO: decide whether this undefined behaviour should be allowed
+                        currseqspans[-1] = TextSpan(*_curr_pos())
+                        continue
+                        # _err("Empty sequence elements must use '_'")
+                    expanded_seq = expand_range(currseqspans[-1].text)
                     if isinstance(expanded_seq, list):
-                        del seq[-1]
-                        seq.extend(expanded_seq)
+                        first, *rest = expanded_seq
+                        currseqspans[-1] = TextSpan(
+                            *currseqspans[-1].pos, first
+                        )
+                        currseqspans.extend(
+                            TextSpan(text=text, is_expansion=True)
+                            for text in rest
+                        )
                     # If not a list, then no expansion was done.
-                    seq.append("")
-                    continue
-                elif c == "}":
-                    mode = _SequenceParseMode.NORMAL
-                    expanded_seq = expand_range(seq[-1])
-                    if isinstance(expanded_seq, list):
-                        del seq[-1]
-                        seq.extend(expanded_seq)
-                    # If not a list, then no expansion was done.
-                    spans.append("")
+                    if c == ",":
+                        currseqspans.append(None)
+                    else:
+                        mode = _SequenceParseMode.NORMAL
+                        spans[-1].choices = cast(
+                            "List[TextSpan]", currseqspans
+                        )
+                        currseqspans = [None]
+                        spans.append(None)
                     continue
                 elif c == "\\":
                     mode = _SequenceParseMode.SEQUENCE_ESCAPE_NEXT
-                seq[-1] += c
+                if currseqspans[-1] is None:
+                    currseqspans[-1] = TextSpan(*_curr_pos(), text=c)
+                else:
+                    currseqspans[-1].text += c
             elif mode == _SequenceParseMode.SEQUENCE_ESCAPE_NEXT:
-                seq = cast("List[str]", spans[-1])
+                assert currseqspans[-1] is not None
                 # Allow escaping special sequence characters while within a sequence.
                 if c in "{},":
                     # The last character was a backslash, so replace it.
-                    seq[-1] = seq[-1][:-1] + c
+                    currseqspans[-1].text = currseqspans[-1].text[:-1] + c
                 else:
-                    seq[-1] += c
+                    currseqspans[-1].text += c
                 mode = _SequenceParseMode.SEQUENCE
     if mode != _SequenceParseMode.NORMAL:
         _err("Input ended while parsing a sequence or escaping a character")
     # Remove unused normal span at the end.
-    if spans[-1] == "":
+    if spans[-1] is None:
         spans.pop()
 
-    return SpanTree(spans)
+    return SpanTree(cast("List[Span]", spans))
 
 
 class ChordRunEvent(Enum):
@@ -909,6 +1011,7 @@ class Hotkey:
     Instance variables:
         raw: the unexpanded hotkey text.
         line: the starting line number.
+        span_tree: the `SpanTree` instance for the decision tree of the hotkey text, resulting from sequence expansion.
         permutations: all possible choices of chord chains, resulting from sequence expansion.
         noabort_index: the index of the chord which had ":" used after it to indicate noabort.
     """
@@ -948,6 +1051,7 @@ class Hotkey:
 
     raw: Union[str, List[str]]
     line: Optional[int]
+    span_tree: SpanTree = field(repr=False)
     permutations: List[List[Chord]] = field(repr=False)
     noabort_index: Optional[int]
     keybind: Optional[ProxyType[Keybind]]
@@ -976,14 +1080,14 @@ class Hotkey:
 
         # It's okay if the error messages say it's at line 1:
         # since it's at line 1 of the input anyway.
-        root = expand_sequences(hotkey, start_line=self.line or 1)
+        self.span_tree = expand_sequences(hotkey, start_line=self.line or 1)
 
         self.permutations = []
         seen_chords: Dict[Tuple[Chord, ...], Tuple[int, Optional[int]]] = {}
         prev_perm: List[Chord]
 
-        for i, flat_perm in enumerate(root.generate_permutations()):
-            tokens = Hotkey.tokenize_static_hotkey(flat_perm, self.line)
+        for i, flat_perm in enumerate(self.span_tree.generate_permutations()):
+            tokens = Hotkey.tokenize_static_hotkey(str(flat_perm), self.line)
             try:
                 noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
             except HotkeyParseError as e:
@@ -1299,14 +1403,15 @@ class Command:
     Instance variables:
         raw: the unexpanded and unprocessed command text.
         line: the starting line number.
+        span_tree: the `SpanTree` instance for the decision tree of the command text, resulting from sequence expansion.
         permutations: all possible choices of command text, resulting from sequence expansion.
         synchronous: whether the command should be executed synchronously or asynchronously.
     """
 
     raw: Union[str, List[str]]
     line: Optional[int]
-    _span_tree: SpanTree = field(repr=False)
-    permutations: List[str] = field(repr=False)
+    span_tree: SpanTree = field(repr=False)
+    permutations: List[SpanPermutation] = field(repr=False)
     synchronous: bool
 
     def __init__(
@@ -1343,7 +1448,7 @@ class Command:
             else:
                 self.synchronous = False
 
-        self._span_tree = root = expand_sequences(
+        self.span_tree = root = expand_sequences(
             command, start_line=line or 1, column_shift=col_shift
         )
 
@@ -1351,7 +1456,7 @@ class Command:
 
     def get_tree(self) -> SpanTree:
         """Return the decision tree resulting from sequence expansion."""
-        return self._span_tree
+        return self.span_tree
 
 
 @dataclass

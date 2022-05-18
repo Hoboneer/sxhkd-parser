@@ -263,7 +263,7 @@ class CommandPredicate(PredicateExpression):
                 norm_str = Hotkey.static_hotkey_str(
                     hk, keybind.hotkey.noabort_index
                 )
-                f.write(cmd)
+                f.write(str(cmd))
                 f.flush()
                 if not any(
                     ctx.replace_str.hotkey in arg

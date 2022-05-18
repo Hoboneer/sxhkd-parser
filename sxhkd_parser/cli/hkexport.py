@@ -144,7 +144,7 @@ class HTMLEmitter(KeybindEmitter):
                         elif field == "mode":
                             yield f'{field_base}<td class="mode">{esc_body(keybind.metadata.get("mode", "normal"))}</td>'
                         elif field == "description" and desc_perms:
-                            yield f'{field_base}<td class="field-{esc_attr(field)}">{esc_body(desc_perms[j])}</td>'
+                            yield f'{field_base}<td class="field-{esc_attr(field)}">{esc_body(str(desc_perms[j]))}</td>'
                         else:
                             if field in keybind.metadata:
                                 body = esc_body(keybind.metadata[field])
@@ -213,7 +213,7 @@ class PlaintextEmitter(KeybindEmitter):
                         elif field == "mode":
                             line.append(keybind.metadata.get("mode", "normal"))
                         elif field == "description" and desc_perms:
-                            line.append(desc_perms[j])
+                            line.append(str(desc_perms[j]))
                         else:
                             line.append(keybind.metadata.get(field, ""))
                     yield "\t".join(line)
