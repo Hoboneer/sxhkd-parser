@@ -23,12 +23,6 @@
   - some functions: print hotkey tree, print span tree for command
 
 - cli: Don't use `ArgumentDefaultsHelpFormatter`
-- lib: While expanding sequences, track starting line and columns for each
-  (raw) span?
-  - to allow for exact line and column count as given in the raw input when
-    running checks on the `Hotkey` and `Command` objects
-  - e.g., allows converting error messages such that the errors can be
-    pinpointed in the input file, including the sequence number
 - lib: Use "expanded" or "flat" instead of "static" for stuff like
   `parse_static_hotkey`---it's clearer that the hotkey should have no sequences
 - lib: Maybe change interface of section handlers to require calling a method
