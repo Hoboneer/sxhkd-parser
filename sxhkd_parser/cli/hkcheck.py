@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import argparse
+from itertools import chain
 from typing import List, NamedTuple, Optional, cast
 
 from ..errors import SXHKDParserError
 from ..keysyms import KEYSYMS
-from ..parser import Hotkey, HotkeyTree
+from ..parser import Hotkey, HotkeyTree, SequenceSpan
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
@@ -115,6 +116,21 @@ def main(argv: Optional[List[str]] = None) -> int:
                     )
                 )
 
+            # Check for mistakenly unescaped sequence characters.
+            for span in chain(
+                keybind.hotkey.span_tree.levels,
+                keybind.command.span_tree.levels,
+            ):
+                if not isinstance(span, SequenceSpan):
+                    continue
+                if len(span.choices) == 1:
+                    errors.append(
+                        Message(
+                            span.line,
+                            span.col,
+                            f"{span.line}:{span.col}: Sequence with only one element: did you forget to escape the braces?",
+                        )
+                    )
             hotkey_tree.merge_hotkey(keybind.hotkey)
     except SXHKDParserError as e:
         # Print errors inside-out.
