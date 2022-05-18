@@ -163,10 +163,7 @@ def match_hotkey(
     for child in curr_level.children:
         if not isinstance(child.value, Chord):
             continue
-        if (curr.modifiers, curr.keysym) == (
-            child.value.modifiers,
-            child.value.keysym,
-        ):
+        if curr == child.value:
             return match_hotkey(rest, child)
     return None
 
