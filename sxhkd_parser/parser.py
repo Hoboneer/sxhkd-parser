@@ -19,6 +19,7 @@ import re
 import string
 from collections import defaultdict
 from dataclasses import dataclass, field
+from dataclasses import replace as dc_replace
 from enum import Enum, auto
 from typing import (
     Any,
@@ -959,6 +960,44 @@ class HotkeyTree:
         removed_children.sort(reverse=True)
         for i in removed_children:
             node.remove_child(i)
+
+        # Now check for conflicts between noabort and non-noabort chords.
+        noabort_groups: DefaultDict[
+            Chord, List[KeypressTreeNode]
+        ] = defaultdict(list)
+        for i, child in enumerate(node.children):
+            if isinstance(child.value, Chord):
+                noabort_groups[dc_replace(child.value, noabort=False)].append(
+                    child
+                )
+
+        for noabort_matches in noabort_groups.values():
+            assert noabort_matches
+            noaborts: List[KeypressTreeNode] = []
+            normals: List[KeypressTreeNode] = []
+            for child in noabort_matches:
+                assert isinstance(child.value, Chord)
+                if child.value.noabort:
+                    noaborts.append(child)
+                elif child.ends_permutation:
+                    normals.append(child)
+                else:
+                    normals.extend(child.find_permutation_ends())
+            if not normals:
+                continue
+            # It's more natural to think of non-noabort chords conflicting with noabort ones.
+            for normal in normals:
+                conflicts.append(
+                    HotkeyConflict(
+                        [normal],
+                        list(
+                            it.chain.from_iterable(
+                                noabort.find_permutation_ends()
+                                for noabort in noaborts
+                            )
+                        ),
+                    )
+                )
 
         # Dedupe the children of the children so that all subtrees below this
         # node are deduplicated too.
