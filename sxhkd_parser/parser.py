@@ -138,13 +138,14 @@ class SpanPermutation:
 
     spans: List[TextSpan]
     # Each element corresponds to the element of the same index in `spans`.
-    # `sequence_choices[i] is None` if `spans[i]` is a `TextSpan`.
+    # `sequence_choices[i] is None` if `spans[i]` is *not* part of a sequence.
     sequence_choices: List[Optional[int]]
 
     def __str__(self) -> str:
         # Ensure empty sequence elements don't appear at all.
         return "".join(
-            span.text if span.text != "_" else "" for span in self.spans
+            span.text if choice is None or span.text != "_" else ""
+            for choice, span in zip(self.sequence_choices, self.spans)
         )
 
 
