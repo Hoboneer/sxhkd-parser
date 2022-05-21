@@ -965,7 +965,7 @@ class HotkeyTree:
         noabort_groups: DefaultDict[
             Chord, List[KeypressTreeNode]
         ] = defaultdict(list)
-        for i, child in enumerate(node.children):
+        for child in node.children:
             if isinstance(child.value, Chord):
                 noabort_groups[dc_replace(child.value, noabort=False)].append(
                     child
@@ -978,7 +978,10 @@ class HotkeyTree:
             for child in noabort_matches:
                 assert isinstance(child.value, Chord)
                 if child.value.noabort:
-                    noaborts.append(child)
+                    assert (
+                        child.children
+                    ), "noabort chord nodes must have children"
+                    noaborts.extend(child.find_permutation_ends())
                 elif child.ends_permutation:
                     normals.append(child)
                 else:
@@ -990,12 +993,7 @@ class HotkeyTree:
                 conflicts.append(
                     HotkeyConflict(
                         [normal],
-                        list(
-                            it.chain.from_iterable(
-                                noabort.find_permutation_ends()
-                                for noabort in noaborts
-                            )
-                        ),
+                        noaborts,
                     )
                 )
 
