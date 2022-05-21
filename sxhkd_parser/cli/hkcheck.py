@@ -168,51 +168,27 @@ def main(argv: Optional[List[str]] = None) -> int:
         noabort_index = prefix.hotkey.noabort_index
         chain_hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
 
-        lines = set()
-        lines.add(prefix.hotkey.line)
-        lines.update(
-            cast(Hotkey, conflict.hotkey).line for conflict in conflicts
-        )
-
-        if len(lines) == 1:
-            conflicts_str = []
-            for conflict in conflicts:
-                assert conflict.hotkey is not None
-                assert conflict.permutation_index is not None
-                chords = conflict.hotkey.permutations[
-                    conflict.permutation_index
-                ]
-                noabort_index = conflict.hotkey.noabort_index
-                hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
-                conflicts_str.append(f"'{hk_str}'")
-            curr_line = lines.pop()
-            errors.append(
-                Message(
-                    curr_line,
-                    None,
-                    f"{curr_line}: '{chain_hk_str}' conflicts with {', '.join(conflicts_str)}",
-                )
-            )
-        else:
-            conflicts_str = []
-            for conflict in conflicts:
-                assert conflict.hotkey is not None
-                assert conflict.permutation_index is not None
-                chords = conflict.hotkey.permutations[
-                    conflict.permutation_index
-                ]
-                noabort_index = conflict.hotkey.noabort_index
-                hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
+        conflicts_str = []
+        for conflict in conflicts:
+            assert conflict.hotkey is not None
+            assert conflict.permutation_index is not None
+            chords = conflict.hotkey.permutations[conflict.permutation_index]
+            noabort_index = conflict.hotkey.noabort_index
+            hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
+            assert conflict.hotkey.line is not None
+            if conflict.hotkey.line != prefix.hotkey.line:
                 conflicts_str.append(
-                    f"'{hk_str}' (line {conflict.hotkey.line})"
+                    f"{hk_str!r} (line {conflict.hotkey.line})"
                 )
-            errors.append(
-                Message(
-                    prefix.hotkey.line,
-                    None,
-                    f"{prefix.hotkey.line}: '{chain_hk_str}' conflicts with {', '.join(conflicts_str)}",
-                )
+            else:
+                conflicts_str.append(f"{hk_str!r}")
+        errors.append(
+            Message(
+                prefix.hotkey.line,
+                None,
+                f"{prefix.hotkey.line}: {chain_hk_str!r} conflicts with {', '.join(conflicts_str)}",
             )
+        )
 
     numbered = []
     rest = []
