@@ -1485,7 +1485,7 @@ class Command:
     raw: Union[str, List[str]]
     line: Optional[int]
     span_tree: SpanTree = field(repr=False)
-    permutations: List[SpanPermutation] = field(repr=False)
+    permutations: List[str] = field(repr=False)
     synchronous: bool
 
     def __init__(
@@ -1526,7 +1526,9 @@ class Command:
             command, start_line=line or 1, column_shift=col_shift
         )
 
-        self.permutations = root.generate_permutations()
+        self.permutations = [
+            str(perm) for perm in root.generate_permutations()
+        ]
 
     def get_tree(self) -> SpanTree:
         """Return the decision tree resulting from sequence expansion."""
