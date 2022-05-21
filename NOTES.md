@@ -30,3 +30,26 @@ actual empty string as a sequence element:
 
 - `{a,b,_}` is well-defined
 - `{a,b,}` is undefined
+
+### Duplicate hotkeys and hotkey conflicts
+
+The manpage is silent about what happens when there are duplicate
+hotkeys--whether the first or last one wins--or when hotkeys conflict.
+
+Here are some example conflicts:
+
+1. `super + a`
+2. `super + a; b`
+3. `super + a: {c,d}`
+
+\(1) conflicts with both (2) and (3) because, once the chord `super + a` has
+been entered, sxhkd has two choices:
+
+i. execute the command for (1); or
+ii. continue to (2) or (3).
+
+\(2) and (3) conflict with each other because, once the chord `super + a` has
+been entered, sxhkd has two choices:
+
+i. wait for more input until `b` is received and then execute the command for (2); or
+ii. enter the mode associated with `super + a` and execute the associated commands every time when `c` or `d` is pressed while the mode is active.
