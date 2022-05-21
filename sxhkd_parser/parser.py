@@ -1323,9 +1323,6 @@ class Hotkey:
                 raise HotkeyTokenizeError(
                     msg, hotkey=hotkey, value=value, line=line
                 )
-            # Empty sequence element.
-            elif type_ == "KEYSYM" and value == "_":
-                continue
             tokens.append(HotkeyToken(type_, value))
         return tokens
 
