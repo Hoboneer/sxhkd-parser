@@ -53,3 +53,5 @@ been entered, sxhkd has two choices:
 
 - wait for more input until `b` is received and then execute the command for (2); or
 - enter the mode associated with `super + a` and execute the associated commands every time when `c` or `d` is pressed while the mode is active.
+
+`hkcheck` warns on duplicates and conflicts.
