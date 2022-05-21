@@ -14,7 +14,9 @@ from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
     IGNORE_HOTKEY_ERRORS,
+    format_error_msg,
     get_command_name,
+    print_exceptions,
     process_args,
 )
 
@@ -303,17 +305,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             hotkey_errors=IGNORE_HOTKEY_ERRORS,
         ):
             if isinstance(bind_or_err, SXHKDParserError):
-                print(bind_or_err, file=sys.stderr)
+                msg = format_error_msg(bind_or_err, namespace.sxhkdrc)
+                print(msg, file=sys.stderr)
     except SXHKDParserError as e:
-        # Print errors inside-out.
-        def print_errors(ex: BaseException) -> None:
-            if ex.__context__ is None:
-                print(f"{namespace.sxhkdrc}:{ex} [FATAL]", file=sys.stderr)
-                return
-            print_errors(ex.__context__)
-            print(f"{namespace.sxhkdrc}:{ex} [FATAL]", file=sys.stderr)
-
-        print_errors(e)
+        print_exceptions(e, namespace.sxhkdrc, file=sys.stderr)
         return 1
     section_handler.root.name = "SXHKD keybinds"
 

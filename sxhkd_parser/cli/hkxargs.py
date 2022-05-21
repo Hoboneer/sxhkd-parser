@@ -31,6 +31,7 @@ from .common import (
     IGNORE_HOTKEY_ERRORS,
     ReplaceStrEvaluator,
     add_repl_str_options,
+    format_error_msg,
     get_command_name,
     process_args,
 )
@@ -271,31 +272,35 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
 
     keybinds: KeybindDict = {}
-    for bind_or_err in read_sxhkdrc(
-        namespace.sxhkdrc,
-        section_handler=section_handler,
-        metadata_parser=metadata_parser,
-        # Handle them ourselves.
-        hotkey_errors=IGNORE_HOTKEY_ERRORS,
-    ):
-        if isinstance(bind_or_err, SXHKDParserError):
-            if bind_or_err.line is None:
-                print(f"{namespace.sxhkdrc}: {bind_or_err}", file=sys.stderr)
-            else:
-                print(f"{namespace.sxhkdrc}:{bind_or_err}", file=sys.stderr)
-            continue
-
-        for hkperm, cmdperm in zip(
-            bind_or_err.hotkey.permutations, bind_or_err.command.permutations
+    try:
+        for bind_or_err in read_sxhkdrc(
+            namespace.sxhkdrc,
+            section_handler=section_handler,
+            metadata_parser=metadata_parser,
+            # Handle them ourselves.
+            hotkey_errors=IGNORE_HOTKEY_ERRORS,
         ):
-            norm_str = Hotkey.static_hotkey_str(
-                hkperm, noabort_index=bind_or_err.hotkey.noabort_index
-            )
-            keybinds[norm_str] = (
-                bind_or_err,
-                cmdperm,
-                bind_or_err.command.synchronous,
-            )
+            if isinstance(bind_or_err, SXHKDParserError):
+                msg = format_error_msg(bind_or_err, namespace.sxhkdrc)
+                print(msg, file=sys.stderr)
+                continue
+
+            for hkperm, cmdperm in zip(
+                bind_or_err.hotkey.permutations,
+                bind_or_err.command.permutations,
+            ):
+                norm_str = Hotkey.static_hotkey_str(
+                    hkperm, noabort_index=bind_or_err.hotkey.noabort_index
+                )
+                keybinds[norm_str] = (
+                    bind_or_err,
+                    cmdperm,
+                    bind_or_err.command.synchronous,
+                )
+    except SXHKDParserError as e:
+        msg = format_error_msg(e, namespace.sxhkdrc)
+        print(msg, file=sys.stderr)
+        return 1
 
     repl_evaluator = ReplaceStrEvaluator(
         namespace.hotkey_replace_str,

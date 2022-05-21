@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 from itertools import chain
-from typing import List, NamedTuple, Optional, cast
+from typing import List, Optional, Union, cast
 
 from ..errors import SXHKDParserError
 from ..keysyms import KEYSYMS
@@ -12,17 +12,14 @@ from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
     IGNORE_HOTKEY_ERRORS,
+    Message,
+    format_error_msg,
     get_command_name,
+    print_exceptions,
     process_args,
 )
 
 __all__ = ["main"]
-
-
-class Message(NamedTuple):
-    line: Optional[int]
-    column: Optional[int]
-    message: str
 
 
 # Current as of sxhkd v0.5.1 - v0.6.2 (inclusive).
@@ -52,7 +49,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     namespace = parser.parse_args(argv)
     section_handler, metadata_parser = process_args(namespace)
 
-    errors: List[Message] = []
+    errors: List[Union[Message, SXHKDParserError]] = []
     # TODO: maybe include other internal nodes?
     INTERNAL_NODES = ["modifierset"]
     hotkey_tree = HotkeyTree(INTERNAL_NODES)
@@ -65,11 +62,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             hotkey_errors=IGNORE_HOTKEY_ERRORS,
         ):
             if isinstance(bind_or_err, SXHKDParserError):
-                errors.append(
-                    Message(
-                        bind_or_err.line, bind_or_err.column, str(bind_or_err)
-                    )
-                )
+                errors.append(bind_or_err)
                 continue
 
             keybind = bind_or_err
@@ -85,7 +78,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     Message(
                         keybind.line,
                         None,
-                        f"{keybind.line}: Possibly invalid keysyms: {keysym_str}",
+                        f"Possibly invalid keysyms: {keysym_str}",
                     )
                 )
 
@@ -100,7 +93,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     Message(
                         keybind.hotkey.line,
                         None,
-                        f"{keybind.hotkey.line}: Hotkey text exceeds {HOTKEY_MAXLEN} bytes so it may be truncated by sxhkd",
+                        f"Hotkey text exceeds {HOTKEY_MAXLEN} bytes so it may be truncated by sxhkd",
                     )
                 )
             if isinstance(keybind.command.raw, list):
@@ -112,7 +105,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     Message(
                         keybind.command.line,
                         None,
-                        f"{keybind.command.line}: Command text exceeds {COMMAND_MAXLEN} bytes so it may be truncated by sxhkd",
+                        f"Command text exceeds {COMMAND_MAXLEN} bytes so it may be truncated by sxhkd",
                     )
                 )
 
@@ -128,20 +121,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                         Message(
                             span.line,
                             span.col,
-                            f"{span.line}:{span.col}: Sequence with only one element: did you forget to escape the braces?",
+                            "Sequence with only one element: did you forget to escape the braces?",
                         )
                     )
             hotkey_tree.merge_hotkey(keybind.hotkey)
     except SXHKDParserError as e:
-        # Print errors inside-out.
-        def print_errors(ex: BaseException) -> None:
-            if ex.__context__ is None:
-                print(f"{namespace.sxhkdrc}:{ex} [FATAL]")
-                return
-            print_errors(ex.__context__)
-            print(f"{namespace.sxhkdrc}:{ex} [FATAL]")
-
-        print_errors(e)
+        print_exceptions(e, namespace.sxhkdrc)
         return 1
 
     hotkey_tree.dedupe_chord_nodes()
@@ -158,7 +143,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             cast(int, cast(Hotkey, node.hotkey).line) for node in dupset
         ):
             errors.append(
-                Message(line, None, f"{line}: Duplicate hotkey '{hotkey_str}'")
+                Message(line, None, f"Duplicate hotkey '{hotkey_str}'")
             )
 
     for prefix, conflicts in hotkey_tree.find_conflicting_chain_prefixes():
@@ -186,7 +171,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             Message(
                 prefix.hotkey.line,
                 None,
-                f"{prefix.hotkey.line}: {chain_hk_str!r} conflicts with {', '.join(conflicts_str)}",
+                f"{chain_hk_str!r} conflicts with {', '.join(conflicts_str)}",
             )
         )
 
@@ -199,8 +184,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             rest.append(msg)
     numbered.sort(key=lambda x: cast(int, x.line))
     for msg in numbered:
-        print(f"{namespace.sxhkdrc}:{msg.message}")
+        print(format_error_msg(msg, config_filename=namespace.sxhkdrc))
     for msg in rest:
-        print(f"{namespace.sxhkdrc}: {msg.message}")
+        print(format_error_msg(msg, config_filename=namespace.sxhkdrc))
 
     return 0

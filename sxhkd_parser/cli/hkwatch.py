@@ -16,7 +16,9 @@ from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
     IGNORE_HOTKEY_ERRORS,
+    format_error_msg,
     get_command_name,
+    print_exceptions,
     process_args,
 )
 
@@ -41,10 +43,8 @@ def read_config(
         hotkey_errors=IGNORE_HOTKEY_ERRORS,
     ):
         if isinstance(bind_or_err, SXHKDParserError):
-            if bind_or_err.line is None:
-                print(f"{config}: {bind_or_err}", file=sys.stderr)
-            else:
-                print(f"{config}:{bind_or_err}", file=sys.stderr)
+            msg = format_error_msg(bind_or_err, config)
+            print(msg, file=sys.stderr)
             errored = True
             continue
 
@@ -318,35 +318,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                         namespace.sxhkdrc, new_section_handler, metadata_parser
                     )
                 except Exception as e:
-                    # Print errors inside-out.
-                    def print_errors(ex: BaseException) -> None:
-                        if ex.__context__ is None:
-                            if (
-                                isinstance(ex, SXHKDParserError)
-                                and ex.line is not None
-                            ):
-                                print(
-                                    f"{namespace.sxhkdrc}:{ex}",
-                                    file=sys.stderr,
-                                )
-                            else:
-                                print(
-                                    f"{namespace.sxhkdrc}: {ex}",
-                                    file=sys.stderr,
-                                )
-                            return
-                        print_errors(ex.__context__)
-                        if (
-                            isinstance(ex, SXHKDParserError)
-                            and ex.line is not None
-                        ):
-                            print(f"{namespace.sxhkdrc}:{ex}", file=sys.stderr)
-                        else:
-                            print(
-                                f"{namespace.sxhkdrc}: {ex}", file=sys.stderr
-                            )
-
-                    print_errors(e)
+                    print_exceptions(e, namespace.sxhkdrc, file=sys.stderr)
                     print(
                         "Got errors while reloading config: using old keybinds...",
                         file=sys.stderr,

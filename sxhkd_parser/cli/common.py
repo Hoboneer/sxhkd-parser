@@ -5,10 +5,12 @@ import argparse
 import os
 import re
 import string
+import sys
 from dataclasses import dataclass
-from typing import IO, Dict, List, Optional, Tuple, Union
+from typing import IO, Dict, List, NamedTuple, Optional, Tuple, Union
 
 from .._package import __version__
+from ..errors import SXHKDParserError
 from ..metadata import (
     KeyValueMetadataParser,
     MetadataParser,
@@ -222,3 +224,45 @@ def add_repl_str_options(parser: argparse.ArgumentParser) -> None:
         type=_parse_repl_str,
         help="set replacement string for the filename of the command text",
     )
+
+
+class Message(NamedTuple):
+    """Data object for CLI error messages."""
+
+    line: Optional[int]
+    column: Optional[int]
+    message: str
+
+
+def format_error_msg(
+    msg: Union[Message, SXHKDParserError], config_filename: str
+) -> str:
+    """Return formatted error message for an error in the file `config_filename`."""
+    parts = []
+    parts.append(config_filename)
+    if msg.line is None and msg.column is not None:
+        raise ValueError(f"missing line but column exists with {msg}")
+    if msg.line is not None:
+        parts.append(str(msg.line))
+    if msg.column is not None:
+        parts.append(str(msg.column))
+    return f"{':'.join(parts)}: {msg.message}"
+
+
+def print_exceptions(
+    ex: BaseException, config_filename: str, file: Optional[IO[str]] = None
+) -> None:
+    """Print exceptions for a fatal error in order of their time of raising."""
+    if file is None:
+        file = sys.stdout
+    if ex.__context__ is None:
+        if isinstance(ex, SXHKDParserError):
+            print(f"{config_filename}:{ex} [FATAL]", file=file)
+        else:
+            print(f"{config_filename}: {ex} [FATAL]", file=file)
+        return
+    print_exceptions(ex.__context__, config_filename, file)
+    if isinstance(ex, SXHKDParserError):
+        print(f"{config_filename}:{ex} [FATAL]", file=file)
+    else:
+        print(f"{config_filename}: {ex} [FATAL]", file=file)
