@@ -576,21 +576,12 @@ class KeypressTreeNode:
             else:
                 self.add_child(node)
         elif isinstance(node.value, KeypressTreeModifierSetNode):
-            # Look for the modifierset node that is equal to `node` furthest
-            # down the tree.
             if node.value.value in self.modifierset_children:
                 for child in node.children:
                     self.modifierset_children[node.value.value].merge_node(
                         child
                     )
             else:
-                # Root: smallest (and thus broadest) modifierset
-                # Leaves: largest (and thus most narrow) modifiersets
-                for modset, rootchild in self.modifierset_children.items():
-                    if modset > node.value.value:
-                        rootchild.merge_node(node)
-                        return
-                # No such node found, so just add `node`.
                 self.add_child(node)
         elif isinstance(node.value, KeypressTreeChordRunEventNode):
             if node.value.value in self.runevent_children:
@@ -827,7 +818,6 @@ class HotkeyTree:
             for nodetype in self.internal_nodes:
                 if nodetype == "keysym":
                     node_values.append(KeypressTreeKeysymNode(chord.keysym))
-                # Always include subsets.
                 elif nodetype == "modifierset":
                     # No null sets.
                     if chord.modifiers:
