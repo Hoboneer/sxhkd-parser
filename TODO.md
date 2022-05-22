@@ -37,3 +37,9 @@
   comments at top of file as well
   - to allow for easy use of tools like my `hk*` programs without having to set
     up a way to include the parser args with every call
+- lib: maybe allow section handlers to parse out multi-line section headers?
+  - handlers need to store state and need to be able to "eat" comment lines:
+    - maybe use the "tick" interface above and return `Optional[Tuple[int, int]]` from `push` for a line range
+- lib: Allow parsing multiple sxhkd configs together since sxhkd allows it
+  - need to figure out how config file precedence works
+  - or maybe parse multiple files separately and stitch them together afterwards?
