@@ -527,6 +527,10 @@ class KeypressTreeNode:
         - KeypressTreeChordRunEventNode: run on key-press or key-release
         - KeypressTreeReplayNode: whether to replay event to other clients
 
+    Invariants (assuming all node additions and removals are done through the methods):
+        - a (chord) node ends a permutation IFF the node has no children.
+        - each level has no duplicate nodes EXCEPT when they differ only by
+          `noabort` or `ends_permutation`.
     """
 
     value: Union[Chord, KeypressTreeInternalNode]
@@ -559,6 +563,62 @@ class KeypressTreeNode:
         """Return whether this node ends a hotkey permutation."""
         return self.permutation_index is not None
 
+    def merge_node(self, node: KeypressTreeNode) -> None:
+        """Add `node` under this node, ensuring no duplicates.
+
+        NOTE: permutation-ending nodes are left unmerged to maintain the invariant that
+              a (chord) node ends a permutation IFF the node has no children.
+        """
+        if isinstance(node.value, KeypressTreeKeysymNode):
+            if node.value.value in self.keysym_children:
+                for child in node.children:
+                    self.keysym_children[node.value.value].merge_node(child)
+            else:
+                self.add_child(node)
+        elif isinstance(node.value, KeypressTreeModifierSetNode):
+            # Look for the modifierset node that is equal to `node` furthest
+            # down the tree.
+            if node.value.value in self.modifierset_children:
+                for child in node.children:
+                    self.modifierset_children[node.value.value].merge_node(
+                        child
+                    )
+            else:
+                # Root: smallest (and thus broadest) modifierset
+                # Leaves: largest (and thus most narrow) modifiersets
+                for modset, rootchild in self.modifierset_children.items():
+                    if modset > node.value.value:
+                        rootchild.merge_node(node)
+                        return
+                # No such node found, so just add `node`.
+                self.add_child(node)
+        elif isinstance(node.value, KeypressTreeChordRunEventNode):
+            if node.value.value in self.runevent_children:
+                for child in node.children:
+                    self.runevent_children[node.value.value].merge_node(child)
+            else:
+                self.add_child(node)
+        elif isinstance(node.value, KeypressTreeReplayNode):
+            if node.value.value in self.replay_children:
+                for child in node.children:
+                    self.replay_children[node.value.value].merge_node(child)
+            else:
+                self.add_child(node)
+        else:
+            assert isinstance(node.value, Chord)
+            for rootchild in self.children:
+                if not isinstance(rootchild.value, Chord):
+                    continue
+                # Don't merge permutation-ending chords.
+                if rootchild.value == node.value and not (
+                    rootchild.ends_permutation or node.ends_permutation
+                ):
+                    for child in node.children:
+                        rootchild.merge_node(child)
+                    break
+            else:
+                self.add_child(node)
+
     def add_child(
         self,
         value: Union[Chord, KeypressTreeInternalNode, KeypressTreeNode],
@@ -569,8 +629,7 @@ class KeypressTreeNode:
         Synchronizes with the relevant `*_children` dicts.  For non-`Chord`
         node inputs, if `merge` is `False`, raises `ValueError` if the child
         already exists in the relevant `*_children` dicts.  if `merge` is
-        `True`, just adds the children of `value` as children of the existing
-        internal node.
+        `True`, calls the `merge_node` method on the new child.
         """
         if isinstance(value, KeypressTreeNode):
             child = value
@@ -595,22 +654,19 @@ class KeypressTreeNode:
             )
 
         assert not isinstance(child.value, Chord)
-        curr_node = curr_children.get(child.value.value)
-        if curr_node:
-            if merge:
-                for subchild in child.children:
-                    curr_node.add_child(subchild, merge=merge)
-            else:
-                typename = re.match(
-                    r"^KeypressTree(.+)Node$", type(child.value).__name__
-                )
-                assert typename is not None
-                raise ValueError(
-                    f"{typename[1]} child '{child.value.value}' already exists at this node."
-                )
+        if merge:
+            self.merge_node(child)
+        elif child.value.value in curr_children:
+            typename = re.match(
+                r"^KeypressTree(.+)Node$", type(child.value).__name__
+            )
+            assert typename is not None
+            raise ValueError(
+                f"{typename[1]} child '{child.value.value}' already exists at this node."
+            )
         else:
             curr_children[child.value.value] = child
-        self.children.append(child)
+            self.children.append(child)
         return child
 
     def remove_child(self, index: int) -> KeypressTreeNode:
@@ -750,7 +806,8 @@ class HotkeyTree:
     def merge_hotkey(self, hotkey: Hotkey) -> None:
         """Merge the tree of chord permutations for `hotkey` into this tree."""
         for i, perm in enumerate(hotkey.permutations):
-            self._add_chord_permutation(perm, i, hotkey)
+            subtree = self._create_subtree_from_chord_chain(perm, i, hotkey)
+            self.root.add_child(subtree, merge=True)
 
     def merge_tree(self, tree: HotkeyTree) -> None:
         """Merge `tree` into this tree."""
@@ -759,135 +816,42 @@ class HotkeyTree:
                 f"Trees had different internal node types ({self.internal_nodes} vs {tree.internal_nodes}). Not merging."
             )
         for child in tree.root.children:
-            self._merge_nodes(self.root, child)
+            self.root.merge_node(child)
 
-    def _merge_nodes(
-        self, root: KeypressTreeNode, node: KeypressTreeNode
-    ) -> None:
-        """Merge `node` under the current root node, ensuring no duplicates."""
-        if isinstance(node.value, KeypressTreeKeysymNode):
-            if node.value.value in root.keysym_children:
-                for child in node.children:
-                    self._merge_nodes(
-                        root.keysym_children[node.value.value], child
-                    )
-            else:
-                root.add_child(node)
-        elif isinstance(node.value, KeypressTreeModifierSetNode):
-            # Look for the modifierset node that is equal to `node` furthest
-            # down the tree.
-            if node.value.value in root.modifierset_children:
-                for child in node.children:
-                    self._merge_nodes(
-                        root.modifierset_children[node.value.value], child
-                    )
-            else:
-                for modset, rootchild in root.modifierset_children.items():
-                    if modset < node.value.value:
-                        self._merge_nodes(rootchild, node)
-                        return
-                # No such node found, so just add `node`.
-                root.add_child(node)
-        elif isinstance(node.value, KeypressTreeChordRunEventNode):
-            if node.value.value in root.runevent_children:
-                for child in node.children:
-                    self._merge_nodes(
-                        root.runevent_children[node.value.value], child
-                    )
-            else:
-                root.add_child(node)
-        elif isinstance(node.value, KeypressTreeReplayNode):
-            if node.value.value in root.replay_children:
-                for child in node.children:
-                    self._merge_nodes(
-                        root.replay_children[node.value.value], child
-                    )
-            else:
-                root.add_child(node)
-        else:
-            assert isinstance(node.value, Chord)
-            for rootchild in root.children:
-                if not isinstance(rootchild.value, Chord):
-                    continue
-                # don't merge permutation-ending chords.
-                if rootchild.value == node.value and not (
-                    rootchild.ends_permutation and node.ends_permutation
-                ):
-                    if (
-                        not rootchild.ends_permutation
-                        and node.ends_permutation
-                    ):
-                        rootchild.permutation_index = node.permutation_index
-                        rootchild.hotkey = node.hotkey
-                    for child in node.children:
-                        self._merge_nodes(rootchild, child)
-                    break
-            else:
-                root.add_child(node)
-
-    def _add_chord_permutation(
+    def _create_subtree_from_chord_chain(
         self, perm: List[Chord], index: int, hotkey: Hotkey
     ) -> KeypressTreeNode:
-        # TODO: check for conflicting noaborts and normal chord chains?
-        new_node = self.root
+        assert perm, "got non-empty permutation"
+        node_values: List[Union[Chord, KeypressTreeInternalNode]] = []
         for chord in perm:
             for nodetype in self.internal_nodes:
                 if nodetype == "keysym":
-                    if chord.keysym in new_node.keysym_children:
-                        new_node = new_node.keysym_children[chord.keysym]
-                    else:
-                        new_node = new_node.add_child(
-                            KeypressTreeKeysymNode(chord.keysym)
-                        )
+                    node_values.append(KeypressTreeKeysymNode(chord.keysym))
                 # Always include subsets.
                 elif nodetype == "modifierset":
                     # No null sets.
                     if chord.modifiers:
-
-                        def find_enclosing_modset_node(
-                            mods: FrozenSet[str], node: KeypressTreeNode
-                        ) -> KeypressTreeNode:
-                            if mods in node.modifierset_children:
-                                # Prefer exact matches.
-                                return node.modifierset_children[mods]
-                            else:
-                                for (
-                                    modset,
-                                    child,
-                                ) in node.modifierset_children.items():
-                                    if modset < mods:
-                                        return find_enclosing_modset_node(
-                                            mods, child
-                                        )
-                                # No modifierset children yet, so add `mods` as one.
-                                return node.add_child(
-                                    KeypressTreeModifierSetNode(mods)
-                                )
-
-                        new_node = find_enclosing_modset_node(
-                            chord.modifiers, new_node
+                        node_values.append(
+                            KeypressTreeModifierSetNode(chord.modifiers)
                         )
                 elif nodetype == "runevent":
-                    if chord.run_event in new_node.runevent_children:
-                        new_node = new_node.runevent_children[chord.run_event]
-                    else:
-                        new_node = new_node.add_child(
-                            KeypressTreeChordRunEventNode(chord.run_event)
-                        )
+                    node_values.append(
+                        KeypressTreeChordRunEventNode(chord.run_event)
+                    )
                 elif nodetype == "replay":
-                    if chord.replay in new_node.replay_children:
-                        new_node = new_node.replay_children[chord.replay]
-                    else:
-                        new_node = new_node.add_child(
-                            KeypressTreeReplayNode(chord.replay)
-                        )
+                    node_values.append(KeypressTreeReplayNode(chord.replay))
                 else:
                     raise RuntimeError(f"invalid nodetype '{nodetype}'")
-            new_node = new_node.add_child(chord)
+            node_values.append(chord)
 
+        root = new_node = KeypressTreeNode(node_values[0])
+        for value in node_values[1:]:
+            # No need to merge as this is just one permutation.
+            new_node = new_node.add_child(value)
         new_node.permutation_index = index
         new_node.hotkey = proxy(hotkey)
-        return new_node
+        assert isinstance(new_node.value, Chord)
+        return root
 
     @staticmethod
     def _dedupe_chord_nodes_rec(
