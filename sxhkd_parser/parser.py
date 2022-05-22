@@ -31,7 +31,6 @@ from typing import (
     Iterable,
     List,
     Mapping,
-    NamedTuple,
     NoReturn,
     Optional,
     Set,
@@ -61,7 +60,6 @@ __all__ = [
     "ChordRunEvent",
     "Command",
     "Hotkey",
-    "HotkeyConflict",
     "HotkeyToken",
     "HotkeyTree",
     "Keybind",
@@ -717,39 +715,6 @@ class KeypressTreeNode:
         self._print_tree_rec(0)
 
 
-class HotkeyConflict(NamedTuple):
-    """Data object for duplicate hotkeys or conflicting prefixes.
-
-    Instance variables:
-        prefix_chains: the nodes that conflict with longer chord chains
-        lower_level_perm_conflicts: the nodes part of the longer chord chains
-
-    NOTE: every contained KeypressTreeNode instance ends a permutation.
-
-    Invariant: there are either:
-        - one or more elements in `prefix_chains` and some in
-          `lower_level_perm_conflicts` (conflicts and duplicates); or
-        - more than one element in `prefix_chains` and none in
-          `lower_level_perm_conflicts` (duplicates only).
-    """
-
-    # `prefix_chains` are duplicates, and there must be at least.
-    # `lower_level_perm_conflicts` are the permutation-ending nodes below the
-    # prefix chains, all of which conflict with every prefix chain.
-    prefix_chains: List[KeypressTreeNode]
-    lower_level_perm_conflicts: List[KeypressTreeNode]
-
-    @property
-    def is_only_duplicates(self) -> bool:
-        """Return whether this conflict only holds duplicates.
-
-        This is true if `lower_level_perm_conflicts` is empty.
-        """
-        assert len(self.prefix_chains) >= 1
-        out = len(self.lower_level_perm_conflicts) == 0
-        return out
-
-
 @dataclass
 class HotkeyTree:
     """The decision tree for a single hotkey or multiple hotkeys.
@@ -864,7 +829,10 @@ class HotkeyTree:
         return dups
 
     def find_duplicate_chord_nodes(self) -> List[List[KeypressTreeNode]]:
-        """Return duplicate chord nodes, with each sublist representing a set of duplicates."""
+        """Return duplicate chord nodes, with each sublist representing a set of duplicates.
+
+        Each KeypressTreeNode instance returned ends a permutation.
+        """
         return HotkeyTree._find_duplicate_chords_rec(self.root)
 
     @staticmethod
@@ -936,7 +904,11 @@ class HotkeyTree:
     def find_conflicting_chain_prefixes(
         self,
     ) -> List[Tuple[KeypressTreeNode, List[KeypressTreeNode]]]:
-        """Return pairs of conflicting chord chain prefixes and permutation-ending nodes under them."""
+        """Return pairs of conflicting chord chain prefixes and the permutation-ending nodes under them.
+
+        Each KeypressTreeNode instance returned ends a permutation, including
+        the first item of each pair (as they would not conflict otherwise).
+        """
         return HotkeyTree._find_conflicting_chain_prefixes_rec(self.root)
 
 
