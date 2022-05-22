@@ -844,77 +844,58 @@ class HotkeyTree:
         return root
 
     @staticmethod
-    def _dedupe_chord_nodes_rec(
+    def _find_duplicate_chords_rec(
         node: KeypressTreeNode,
-    ) -> List[HotkeyConflict]:
-        # No children to deduplicate.
+    ) -> List[List[KeypressTreeNode]]:
         if not node.children:
             return []
 
-        # Dedupe the direct children: maximise deduping among lower subtrees.
-        groups: DefaultDict[
-            Chord, List[Tuple[int, KeypressTreeNode]]
-        ] = defaultdict(list)
-        for i, child in enumerate(node.children):
-            if isinstance(child.value, Chord):
-                groups[child.value].append((i, child))
+        # Take only chord nodes and group them by their value.
+        groups: DefaultDict[Chord, List[KeypressTreeNode]] = defaultdict(list)
+        for child in node.children:
+            if isinstance(child.value, Chord) and child.ends_permutation:
+                groups[child.value].append(child)
+        dups = list(
+            dupnodes for dupnodes in groups.values() if len(dupnodes) > 1
+        )
 
-        # Merge non-permutation-ending nodes into one big subtree and discard the rest.
-        # Get duplicates and prefix conflicts using permutation-ending nodes.
-        conflicts: List[HotkeyConflict] = []
-        removed_children: List[int] = []
+        for child in node.children:
+            dups.extend(HotkeyTree._find_duplicate_chords_rec(child))
+        return dups
+
+    def find_duplicate_chord_nodes(self) -> List[List[KeypressTreeNode]]:
+        """Return duplicate chord nodes, with each sublist representing a set of duplicates."""
+        return HotkeyTree._find_duplicate_chords_rec(self.root)
+
+    @staticmethod
+    def _find_conflicting_chain_prefixes_rec(
+        node: KeypressTreeNode,
+    ) -> List[Tuple[KeypressTreeNode, List[KeypressTreeNode]]]:
+        if not node.children:
+            return []
+
+        conflicts = []
+        # Check for conflicts between chord nodes with the same value of `noabort`.
+        groups: DefaultDict[Chord, List[KeypressTreeNode]] = defaultdict(list)
+        for child in node.children:
+            if isinstance(child.value, Chord):
+                groups[child.value].append(child)
         for matches in groups.values():
             assert matches
-            perm_ends = []
-            # Merge these into one.
-            longer_chains = []
-            for i, child in matches:
+            prefix_perm_ends: List[KeypressTreeNode] = []
+            longer_chains: List[KeypressTreeNode] = []
+            for child in matches:
+                assert isinstance(child.value, Chord)
                 if child.ends_permutation:
                     assert (
                         not child.children
-                    ), "at each level, a permutation-ending node should not have children until the level is merged"
-                    perm_ends.append((i, child))
+                    ), "got a permutation-ending node with children"
+                    prefix_perm_ends.append(child)
                 else:
-                    longer_chains.append((i, child))
-
+                    longer_chains.extend(child.find_permutation_ends())
             if longer_chains:
-                # Merge longer non-perm-ending chains into one.
-                # No info can be lost since there are no perm indices to set
-                # and potentially clobber.
-                (_, aggregate_long_chain), *rest = longer_chains
-                for i, chain in rest:
-                    for subchild in chain.children:
-                        aggregate_long_chain.add_child(subchild, merge=True)
-                    removed_children.append(i)
-                lower_level_perm_conflicts = (
-                    aggregate_long_chain.find_permutation_ends()
-                )
-            else:
-                lower_level_perm_conflicts = []
-
-            def has_prefix_conflicts() -> bool:
-                return (
-                    len(perm_ends) >= 1
-                    and len(lower_level_perm_conflicts) >= 1
-                )
-
-            def only_duplicates() -> bool:
-                return (
-                    len(perm_ends) > 1 and len(lower_level_perm_conflicts) == 0
-                )
-
-            if has_prefix_conflicts() or only_duplicates():
-                conflicts.append(
-                    HotkeyConflict(
-                        [perm_end for _, perm_end in perm_ends],
-                        lower_level_perm_conflicts,
-                    )
-                )
-
-        # Remove from right-to-left in children list.
-        removed_children.sort(reverse=True)
-        for i in removed_children:
-            node.remove_child(i)
+                for prefix in prefix_perm_ends:
+                    conflicts.append((prefix, longer_chains))
 
         # Now check for conflicts between noabort and non-noabort chords.
         noabort_groups: DefaultDict[
@@ -925,7 +906,6 @@ class HotkeyTree:
                 noabort_groups[dc_replace(child.value, noabort=False)].append(
                     child
                 )
-
         for noabort_matches in noabort_groups.values():
             assert noabort_matches
             noaborts: List[KeypressTreeNode] = []
@@ -935,79 +915,29 @@ class HotkeyTree:
                 if child.value.noabort:
                     assert (
                         child.children
-                    ), "noabort chord nodes must have children"
+                    ), "got a noabort chord node without children"
                     noaborts.extend(child.find_permutation_ends())
                 elif child.ends_permutation:
                     normals.append(child)
                 else:
                     normals.extend(child.find_permutation_ends())
-            if not normals:
-                continue
             # It's more natural to think of non-noabort chords conflicting with noabort ones.
-            for normal in normals:
-                conflicts.append(
-                    HotkeyConflict(
-                        [normal],
-                        noaborts,
-                    )
-                )
+            if noaborts:
+                for normal in normals:
+                    conflicts.append((normal, noaborts))
 
-        # Dedupe the children of the children so that all subtrees below this
-        # node are deduplicated too.
         for child in node.children:
-            conflicts.extend(HotkeyTree._dedupe_chord_nodes_rec(child))
+            conflicts.extend(
+                HotkeyTree._find_conflicting_chain_prefixes_rec(child)
+            )
+
         return conflicts
-
-    def dedupe_chord_nodes(
-        self,
-    ) -> List[HotkeyConflict]:
-        """Deduplicate nodes that contain `Chord` in its `value` attribute.
-
-        This merges sibling nodes with equal `value` attributes if they are
-        both of type `Chord` and neither end a permutation.
-
-        Returns a list of `HotkeyConflict` objects to indicate duplicates
-        and/or conflicting prefixes.
-
-        Cases:
-            two sibling perm-ending chords:
-                - duplicate hotkey defined (not just as a result of parsing them independently of each other)
-            one non-perm ending chord (p') and one perm-ending (p) chord:
-                - conflicting prefix!
-        """
-        return HotkeyTree._dedupe_chord_nodes_rec(self.root)
-
-    def find_duplicate_chord_nodes(self) -> List[List[KeypressTreeNode]]:
-        """Return duplicate chord nodes.
-
-        Duplicates are sibling chord nodes of equal value, so this is best
-        called after `dedupe_chord_nodes`.
-
-        NOTE: calls `dedupe_chord_nodes, so tree may be modified.
-        """
-        # XXX: should there only be warnings for the duplicates past the first one?
-        return [
-            conflict.prefix_chains
-            for conflict in self.dedupe_chord_nodes()
-            if len(conflict.prefix_chains) > 1
-        ]
 
     def find_conflicting_chain_prefixes(
         self,
     ) -> List[Tuple[KeypressTreeNode, List[KeypressTreeNode]]]:
-        """Return pairs of conflicting chord chain prefixes and permutation-ending nodes under them.
-
-        NOTE: calls `dedupe_chord_nodes, so tree may be modified.
-        """
-        prefix_conflicts = []
-        for conflict in self.dedupe_chord_nodes():
-            if conflict.is_only_duplicates:
-                continue
-            for prefix in conflict.prefix_chains:
-                prefix_conflicts.append(
-                    (prefix, conflict.lower_level_perm_conflicts)
-                )
-        return prefix_conflicts
+        """Return pairs of conflicting chord chain prefixes and permutation-ending nodes under them."""
+        return HotkeyTree._find_conflicting_chain_prefixes_rec(self.root)
 
 
 class _HotkeyParseMode(Enum):
@@ -1167,7 +1097,6 @@ class Hotkey:
 
         if check_conflicting_permutations:
             tree = self.get_tree(["modifierset"])
-            tree.dedupe_chord_nodes()
             for (
                 prefix,
                 conflicts,

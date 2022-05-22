@@ -129,7 +129,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         print_exceptions(e, namespace.sxhkdrc)
         return 1
 
-    hotkey_tree.dedupe_chord_nodes()
     for dupset in hotkey_tree.find_duplicate_chord_nodes():
         assert dupset
         node = dupset[0]

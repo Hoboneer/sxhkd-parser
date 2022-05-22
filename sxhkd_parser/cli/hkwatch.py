@@ -65,7 +65,6 @@ def read_config(
 
         hotkey_tree.merge_hotkey(keybind.hotkey)
 
-    hotkey_tree.dedupe_chord_nodes()
     for dupset in hotkey_tree.find_duplicate_chord_nodes():
         assert dupset
         node = dupset[0]
