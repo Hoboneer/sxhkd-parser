@@ -655,8 +655,9 @@ class KeypressTreeNode:
         else:
             if self.ends_permutation:
                 assert self.hotkey is not None
+                perm = self.hotkey.permutations[self.permutation_index]
                 print(
-                    f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r} i={self.permutation_index},hotkey={self.hotkey.raw}"
+                    f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r} i={self.permutation_index}, hotkey={Hotkey.static_hotkey_str(perm, self.hotkey.noabort_index)!r}"
                 )
             else:
                 print(f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r}")
