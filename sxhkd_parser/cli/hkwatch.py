@@ -353,8 +353,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                 ), "expected to see a chord before 'BBegin chain' but got none"
                 tokens = Hotkey.tokenize_static_hotkey(prev_hotkey_str)
                 _, chords = Hotkey.parse_static_hotkey(tokens)
+                failmsg = "got noabort final chord from sxhkd status"
+                assert not chords[-1].noabort, failmsg
 
+                # Try to match a mode first.
+                chords[-1].noabort = True
                 node = match_hotkey(chords, tree.root)
+                if node is None:
+                    chords[-1].noabort = False
+                    node = match_hotkey(chords, tree.root)
+
                 if node is not None and isinstance(node.value, Chord):
                     if node.value.noabort:
                         perm_ends = node.find_permutation_ends()
