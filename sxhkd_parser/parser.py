@@ -777,18 +777,16 @@ class HotkeyTree:
     def _create_subtree_from_chord_chain(
         self, perm: List[Chord], index: int, hotkey: Hotkey
     ) -> KeypressTreeNode:
-        assert perm, "got non-empty permutation"
+        assert perm, "got empty permutation"
         node_values: List[Union[Chord, KeypressTreeInternalNode]] = []
         for chord in perm:
             for nodetype in self.internal_nodes:
                 if nodetype == "keysym":
                     node_values.append(KeypressTreeKeysymNode(chord.keysym))
                 elif nodetype == "modifierset":
-                    # No null sets.
-                    if chord.modifiers:
-                        node_values.append(
-                            KeypressTreeModifierSetNode(chord.modifiers)
-                        )
+                    node_values.append(
+                        KeypressTreeModifierSetNode(chord.modifiers)
+                    )
                 elif nodetype == "runevent":
                     node_values.append(
                         KeypressTreeChordRunEventNode(chord.run_event)
