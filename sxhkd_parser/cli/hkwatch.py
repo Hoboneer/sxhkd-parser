@@ -82,8 +82,8 @@ def match_hotkey(
     if not chords:
         assert isinstance(curr_level.value, Chord)
         return curr_level
+
     curr, *rest = chords
-    assert {"modifierset", "keysym"} == set(INTERNAL_NODES)
     curr_level = find_matching_modsets(curr.modifiers, curr_level)
     if curr_level is None:
         return None
