@@ -6,13 +6,15 @@ from itertools import chain
 from typing import List, Optional, Union, cast
 
 from ..errors import SXHKDParserError
-from ..keysyms import KEYSYMS
-from ..parser import Hotkey, HotkeyTree, SequenceSpan
+from ..parser import HotkeyTree, SequenceSpan
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
     IGNORE_HOTKEY_ERRORS,
     Message,
+    find_duplicates,
+    find_maybe_invalid_keysyms,
+    find_prefix_conflicts,
     format_error_msg,
     get_command_name,
     print_exceptions,
@@ -66,21 +68,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 continue
 
             keybind = bind_or_err
-            # Check for possibly invalid keysyms.
-            keysyms = set()
-            for perm in keybind.hotkey.permutations:
-                for chord in perm:
-                    if chord.keysym not in KEYSYMS:
-                        keysyms.add(chord.keysym)
-            if keysyms:
-                keysym_str = " ,".join(f"'{k}'" for k in keysyms)
-                errors.append(
-                    Message(
-                        keybind.line,
-                        None,
-                        f"Possibly invalid keysyms: {keysym_str}",
-                    )
-                )
+            errors.extend(find_maybe_invalid_keysyms(keybind))
 
             # Check for truncated keybinds (since sxhkd avoids dynamic memory allocation)
             # See https://github.com/baskerville/sxhkd/issues/139
@@ -129,50 +117,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         print_exceptions(e, namespace.sxhkdrc)
         return 1
 
-    for dupset in hotkey_tree.find_duplicate_chord_nodes():
-        assert dupset
-        node = dupset[0]
-        assert node.hotkey is not None
-        assert node.permutation_index is not None
-        chords = node.hotkey.permutations[node.permutation_index]
-        noabort_index = node.hotkey.noabort_index
-        hotkey_str = Hotkey.static_hotkey_str(chords, noabort_index)
-        # XXX: All `line` attributes will be non-`None` since all were read from a file.
-        for line in sorted(
-            cast(int, cast(Hotkey, node.hotkey).line) for node in dupset
-        ):
-            errors.append(
-                Message(line, None, f"Duplicate hotkey '{hotkey_str}'")
-            )
-
-    for prefix, conflicts in hotkey_tree.find_conflicting_chain_prefixes():
-        assert prefix.hotkey is not None
-        assert prefix.permutation_index is not None
-        chords = prefix.hotkey.permutations[prefix.permutation_index]
-        noabort_index = prefix.hotkey.noabort_index
-        chain_hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
-
-        conflicts_str = []
-        for conflict in conflicts:
-            assert conflict.hotkey is not None
-            assert conflict.permutation_index is not None
-            chords = conflict.hotkey.permutations[conflict.permutation_index]
-            noabort_index = conflict.hotkey.noabort_index
-            hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
-            assert conflict.hotkey.line is not None
-            if conflict.hotkey.line != prefix.hotkey.line:
-                conflicts_str.append(
-                    f"{hk_str!r} (line {conflict.hotkey.line})"
-                )
-            else:
-                conflicts_str.append(f"{hk_str!r}")
-        errors.append(
-            Message(
-                prefix.hotkey.line,
-                None,
-                f"{chain_hk_str!r} conflicts with {', '.join(conflicts_str)}",
-            )
-        )
+    errors.extend(find_duplicates(hotkey_tree))
+    errors.extend(find_prefix_conflicts(hotkey_tree))
 
     numbered = []
     rest = []

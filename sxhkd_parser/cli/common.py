@@ -7,10 +7,21 @@ import re
 import string
 import sys
 from dataclasses import dataclass
-from typing import IO, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import (
+    IO,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 from .._package import __version__
 from ..errors import SXHKDParserError
+from ..keysyms import KEYSYMS
 from ..metadata import (
     KeyValueMetadataParser,
     MetadataParser,
@@ -21,6 +32,7 @@ from ..metadata import (
     SimpleSectionHandler,
     StackSectionHandler,
 )
+from ..parser import Hotkey, HotkeyTree, Keybind
 
 
 def get_command_name(path: str) -> str:
@@ -266,3 +278,69 @@ def print_exceptions(
         print(f"{config_filename}:{ex} [FATAL]", file=file)
     else:
         print(f"{config_filename}: {ex} [FATAL]", file=file)
+
+
+def find_maybe_invalid_keysyms(keybind: Keybind) -> Iterable[Message]:
+    """Yield a `Message` object if `keybind` has possibly invalid keysyms."""
+    keysyms = set()
+    for perm in keybind.hotkey.permutations:
+        for chord in perm:
+            if chord.keysym not in KEYSYMS:
+                keysyms.add(chord.keysym)
+    if keysyms:
+        keysym_str = ", ".join(f"'{k}'" for k in keysyms)
+        # TODO: either make this function take a HotkeyTree or rewrite type
+        # hints such that it isn't an iterable.  As it is now however, this is
+        # very convenient in the CLI tools.
+        yield Message(
+            keybind.line,
+            None,
+            f"Possibly invalid keysyms: {keysym_str}",
+        )
+
+
+def find_duplicates(tree: HotkeyTree) -> Iterable[Message]:
+    """Yield `Message` objects for duplicate hotkeys found in `tree`."""
+    for dupset in tree.find_duplicate_chord_nodes():
+        assert dupset
+        node = dupset[0]
+        assert node.hotkey is not None
+        assert node.permutation_index is not None
+        chords = node.hotkey.permutations[node.permutation_index]
+        noabort_index = node.hotkey.noabort_index
+        hotkey_str = Hotkey.static_hotkey_str(chords, noabort_index)
+        # XXX: All `line` attributes will be non-`None` since it's assumed that all were read from a file.
+        for line in sorted(
+            cast(int, cast(Hotkey, node.hotkey).line) for node in dupset
+        ):
+            yield Message(line, None, f"Duplicate hotkey '{hotkey_str}'")
+
+
+def find_prefix_conflicts(tree: HotkeyTree) -> Iterable[Message]:
+    """Yield `Message` objects for conflicting chain prefixes in `tree`."""
+    for prefix, conflicts in tree.find_conflicting_chain_prefixes():
+        assert prefix.hotkey is not None
+        assert prefix.permutation_index is not None
+        chords = prefix.hotkey.permutations[prefix.permutation_index]
+        noabort_index = prefix.hotkey.noabort_index
+        chain_hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
+
+        conflicts_str = []
+        for conflict in conflicts:
+            assert conflict.hotkey is not None
+            assert conflict.permutation_index is not None
+            chords = conflict.hotkey.permutations[conflict.permutation_index]
+            noabort_index = conflict.hotkey.noabort_index
+            hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
+            assert conflict.hotkey.line is not None
+            if conflict.hotkey.line != prefix.hotkey.line:
+                conflicts_str.append(
+                    f"{hk_str!r} (line {conflict.hotkey.line})"
+                )
+            else:
+                conflicts_str.append(f"{hk_str!r}")
+        yield Message(
+            prefix.hotkey.line,
+            None,
+            f"{chain_hk_str!r} conflicts with {', '.join(conflicts_str)}",
+        )

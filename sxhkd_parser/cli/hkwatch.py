@@ -2,20 +2,23 @@
 from __future__ import annotations
 
 import argparse
+import itertools as it
 import re
 import subprocess
 import sys
 from signal import SIGUSR1, SIGUSR2, signal
-from typing import Any, FrozenSet, List, Optional, Tuple, cast
+from typing import Any, FrozenSet, List, Optional, Tuple
 
 from ..errors import SXHKDParserError
-from ..keysyms import KEYSYMS
 from ..metadata import MetadataParser, SectionHandler
 from ..parser import Chord, Hotkey, HotkeyTree, KeypressTreeNode
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
     IGNORE_HOTKEY_ERRORS,
+    find_duplicates,
+    find_maybe_invalid_keysyms,
+    find_prefix_conflicts,
     format_error_msg,
     get_command_name,
     print_exceptions,
@@ -49,83 +52,15 @@ def read_config(
             continue
 
         keybind = bind_or_err
-        # Check for possibly invalid keysyms.
-        keysyms = set()
-        for perm in keybind.hotkey.permutations:
-            for chord in perm:
-                if chord.keysym not in KEYSYMS:
-                    keysyms.add(chord.keysym)
-        if keysyms:
-            keysym_str = " ,".join(f"'{k}'" for k in keysyms)
-            print(
-                f"{keybind.line}: Possibly invalid keysyms: {keysym_str}",
-                file=sys.stderr,
-            )
+        for err in find_maybe_invalid_keysyms(keybind):
+            print(format_error_msg(err, config), file=sys.stderr)
             errored = True
-
         hotkey_tree.merge_hotkey(keybind.hotkey)
 
-    for dupset in hotkey_tree.find_duplicate_chord_nodes():
-        assert dupset
-        node = dupset[0]
-        assert node.hotkey is not None
-        assert node.permutation_index is not None
-        chords = node.hotkey.permutations[node.permutation_index]
-        noabort_index = node.hotkey.noabort_index
-        hotkey_str = Hotkey.static_hotkey_str(chords, noabort_index)
-        # XXX: All `line` attributes will be non-`None` since all were read from a file.
-        for line in sorted(
-            cast(int, cast(Hotkey, node.hotkey).line) for node in dupset
-        ):
-            print(f"{line}: Duplicate hotkey '{hotkey_str}'", file=sys.stderr)
-        errored = True
-
-    for prefix, conflicts in hotkey_tree.find_conflicting_chain_prefixes():
-        assert prefix.hotkey is not None
-        assert prefix.permutation_index is not None
-        chords = prefix.hotkey.permutations[prefix.permutation_index]
-        noabort_index = prefix.hotkey.noabort_index
-        chain_hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
-
-        lines = set()
-        lines.add(prefix.hotkey.line)
-        lines.update(
-            cast(Hotkey, conflict.hotkey).line for conflict in conflicts
-        )
-
-        if len(lines) == 1:
-            conflicts_str = []
-            for conflict in conflicts:
-                assert conflict.hotkey is not None
-                assert conflict.permutation_index is not None
-                chords = conflict.hotkey.permutations[
-                    conflict.permutation_index
-                ]
-                noabort_index = conflict.hotkey.noabort_index
-                hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
-                conflicts_str.append(f"'{hk_str}'")
-            curr_line = lines.pop()
-            print(
-                f"{curr_line}: '{chain_hk_str}' conflicts with {', '.join(conflicts_str)}",
-                file=sys.stderr,
-            )
-        else:
-            conflicts_str = []
-            for conflict in conflicts:
-                assert conflict.hotkey is not None
-                assert conflict.permutation_index is not None
-                chords = conflict.hotkey.permutations[
-                    conflict.permutation_index
-                ]
-                noabort_index = conflict.hotkey.noabort_index
-                hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
-                conflicts_str.append(
-                    f"'{hk_str}' (line {conflict.hotkey.line})"
-                )
-            print(
-                f"{prefix.hotkey.line}: '{chain_hk_str}' conflicts with {', '.join(conflicts_str)}",
-                file=sys.stderr,
-            )
+    for err in it.chain(
+        find_duplicates(hotkey_tree), find_prefix_conflicts(hotkey_tree)
+    ):
+        print(format_error_msg(err, config), file=sys.stderr)
         errored = True
     return (errored, hotkey_tree)
 
