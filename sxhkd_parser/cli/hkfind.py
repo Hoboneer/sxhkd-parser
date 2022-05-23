@@ -30,6 +30,7 @@ from .common import (
     IGNORE_HOTKEY_ERRORS,
     ReplaceStrEvaluator,
     add_repl_str_options,
+    format_error_msg,
     get_command_name,
     process_args,
 )
@@ -550,10 +551,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         hotkey_errors=IGNORE_HOTKEY_ERRORS,
     ):
         if isinstance(bind_or_err, SXHKDParserError):
-            if bind_or_err.line is None:
-                print(f"{namespace.sxhkdrc}: {bind_or_err}", file=sys.stderr)
-            else:
-                print(f"{namespace.sxhkdrc}:{bind_or_err}", file=sys.stderr)
+            msg = format_error_msg(bind_or_err, namespace.sxhkdrc)
+            print(msg, file=sys.stderr)
             continue
 
     for keybind, matches in match_keybinds(
