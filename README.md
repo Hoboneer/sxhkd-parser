@@ -76,3 +76,7 @@ are unsupported.  The list follows:
       - Numeric: `0-9`, `5-8`
     - These are *not*: `0-A`, `A-0`
     - I'm open to changing this if there's a good justification for it.
+- Command cycling:
+    - The library enforces the invariant that, within each keybind, the number
+      of permutations of the hotkey and the command are equal.
+    - It's undocumented and thus unlikely to be used that much anyway.
