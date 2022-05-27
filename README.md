@@ -38,11 +38,12 @@ for bind_or_err in read_sxhkdrc('sxhkdrc'):
 from sxhkd_parser import *
 
 handler = SimpleSectionHandler(r'^#\s*(?P<name>[A-Z. /-]+):$')
-parser = SimpleDescriptionParser(r'^#\s*(?P<value>[A-Z][^.]+\.)$')
+parser = SimpleDescriptionParser(r'^#\s*(?P<description>[A-Z][^.]+\.)$')
 for bind_or_err in read_sxhkdrc('sxhkdrc', section_handler=handler, metadata_parser=parser):
     if isinstance(bind_or_err, SXHKDParserError):
         print(bind_or_err)
         continue
+    keybind = bind_or_err
     print(keybind)
     keybind.hotkey.get_tree().print_tree()
     keybind.command.get_tree().print_tree()
