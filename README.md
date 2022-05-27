@@ -63,8 +63,13 @@ of (3) above, so any suggestions for renaming (1) are welcome.
 
 ## Limitations
 
-- Inconsistent location of `:` to indicate noabort across the permutations of a hotkey:
-    - Each `Hotkey` object has a single `noabort_index` attribute.  This will not change.
+To maintain simplicity in the implementation, some uncommon features of sxhkd
+are unsupported.  The list follows:
+
+- Inconsistent location of `:` to indicate noabort across the permutations of a
+  hotkey:
+    - Each `Hotkey` object has a single `noabort_index` attribute.  This will
+      not change.
 - Alphanumeric ranges within sequences of the form `{s1,s2,s3,...,sn}`:
     - These are OK:
       - Alphabetic: `A-Z`, `a-z`, `A-F`, `a-f`, `A-z` (within ASCII)
