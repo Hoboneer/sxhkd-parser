@@ -543,7 +543,7 @@ class KeypressTreeNode:
     # Both are non-None when this (chord) node ends a permutation.
     permutation_index: Optional[int]
     # Reference to the hotkey that this permutation comes from.
-    hotkey: Optional[ProxyType[Hotkey]]
+    hotkey: Optional[Hotkey]
 
     def __init__(self, value: Union[Chord, KeypressTreeInternalNode]):
         self.value = value
@@ -700,6 +700,7 @@ class KeypressTreeNode:
         else:
             if self.ends_permutation:
                 assert self.hotkey is not None
+                assert self.permutation_index is not None
                 perm = self.hotkey.permutations[self.permutation_index]
                 print(
                     f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r} i={self.permutation_index}, hotkey={Hotkey.static_hotkey_str(perm, self.hotkey.noabort_index)!r}"
@@ -802,7 +803,7 @@ class HotkeyTree:
             # No need to merge as this is just one permutation.
             new_node = new_node.add_child(value)
         new_node.permutation_index = index
-        new_node.hotkey = proxy(hotkey)
+        new_node.hotkey = hotkey
         assert isinstance(new_node.value, Chord)
         return root
 
