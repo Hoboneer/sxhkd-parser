@@ -60,6 +60,7 @@ __all__ = [
     "ChordRunEvent",
     "Command",
     "Hotkey",
+    "HotkeyPermutation",
     "HotkeyToken",
     "HotkeyTree",
     "Keybind",
@@ -561,6 +562,14 @@ class KeypressTreeNode:
         """Return whether this node ends a hotkey permutation."""
         return self.permutation_index is not None
 
+    @property
+    def permutation(self) -> Optional[HotkeyPermutation]:
+        """Return the associated `HotkeyPermutation` if node ends a permutation, otherwise return `None`."""
+        if self.hotkey is None:
+            return None
+        assert self.permutation_index is not None
+        return self.hotkey.permutations[self.permutation_index]
+
     def merge_node(self, node: KeypressTreeNode) -> None:
         """Add `node` under this node, ensuring no duplicates.
 
@@ -699,11 +708,9 @@ class KeypressTreeNode:
             print(repr(self.value))
         else:
             if self.ends_permutation:
-                assert self.hotkey is not None
-                assert self.permutation_index is not None
-                perm = self.hotkey.permutations[self.permutation_index]
+                assert self.permutation is not None
                 print(
-                    f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r} i={self.permutation_index}, hotkey={Hotkey.static_hotkey_str(perm, self.hotkey.noabort_index)!r}"
+                    f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r} i={self.permutation_index}, hotkey={self.permutation}"
                 )
             else:
                 print(f"{' ' * (level-1)}└{'─' * (level-1)} {self.value!r}")
@@ -714,6 +721,42 @@ class KeypressTreeNode:
     def print_tree(self) -> None:
         """Print the tree rooted at this node."""
         self._print_tree_rec(0)
+
+
+@dataclass
+class HotkeyPermutation:
+    """A permutation of a hotkey.
+
+    Instance variables:
+        chords: the list of `Chord` objects comprising the permutation.
+        noabort_index: see the `noabort_index` attribute of `Hotkey` for description.
+    """
+
+    chords: List[Chord]
+    noabort_index: Optional[int]
+
+    def __str__(self) -> str:
+        """Return the string representation of the chord chain."""
+        hotkey = ""
+        for i, chord in enumerate(self.chords):
+            keysym_prefix = ""
+            if chord.replay:
+                keysym_prefix += "~"
+            if chord.run_event == ChordRunEvent.KEYRELEASE:
+                keysym_prefix += "@"
+            hotkey += " + ".join(
+                it.chain(
+                    sorted(chord.modifiers), [keysym_prefix + chord.keysym]
+                )
+            )
+            if self.noabort_index is not None and i == self.noabort_index:
+                hotkey += ": "
+            elif i == len(self.chords) - 1:
+                # last chord: no ';'
+                continue
+            else:
+                hotkey += "; "
+        return hotkey
 
 
 @dataclass
@@ -776,11 +819,11 @@ class HotkeyTree:
             self.root.merge_node(child)
 
     def _create_subtree_from_chord_chain(
-        self, perm: List[Chord], index: int, hotkey: Hotkey
+        self, perm: HotkeyPermutation, index: int, hotkey: Hotkey
     ) -> KeypressTreeNode:
-        assert perm, "got empty permutation"
+        assert perm.chords, "got empty permutation"
         node_values: List[Union[Chord, KeypressTreeInternalNode]] = []
-        for chord in perm:
+        for chord in perm.chords:
             for nodetype in self.internal_nodes:
                 if nodetype == "keysym":
                     node_values.append(KeypressTreeKeysymNode(chord.keysym))
@@ -985,7 +1028,7 @@ class Hotkey:
     raw: Union[str, List[str]]
     line: Optional[int]
     span_tree: SpanTree = field(repr=False)
-    permutations: List[List[Chord]] = field(repr=False)
+    permutations: List[HotkeyPermutation] = field(repr=False)
     noabort_index: Optional[int]
     keybind: Optional[ProxyType[Keybind]]
 
@@ -1016,55 +1059,52 @@ class Hotkey:
         self.span_tree = expand_sequences(hotkey, start_line=self.line or 1)
 
         self.permutations = []
-        seen_chords: Dict[Tuple[Chord, ...], Tuple[int, Optional[int]]] = {}
-        prev_perm: List[Chord]
+        # Map perms to indices in `self.permutations`.
+        seen_perms: Dict[Tuple[Tuple[Chord, ...], Optional[int]], int] = {}
 
         for i, flat_perm in enumerate(self.span_tree.generate_permutations()):
             tokens = Hotkey.tokenize_static_hotkey(str(flat_perm), self.line)
             try:
-                noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
+                curr_perm = Hotkey.parse_hotkey_permutation(tokens)
             except HotkeyParseError as e:
                 if isinstance(e, DuplicateModifierError):
                     e.message = f"{e.message} in '{flat_perm}'"
                 e.line = self.line
                 raise
+
+            perm_tuple = (tuple(curr_perm.chords), curr_perm.noabort_index)
             if i == 0:
-                prev_perm = chords
-                self.noabort_index = noabort_index
-                seen_chords[tuple(chords)] = (i, noabort_index)
-                self.permutations.append(chords)
+                self.noabort_index = curr_perm.noabort_index
+                seen_perms[perm_tuple] = i
+                self.permutations.append(curr_perm)
                 continue
 
-            if noabort_index != self.noabort_index:
+            if curr_perm.noabort_index != self.noabort_index:
                 if isinstance(self.raw, str):
                     raw_hotkey = self.raw
                 else:
                     raw_hotkey = " ".join(self.raw)
-                hotkey_str1 = Hotkey.static_hotkey_str(
-                    prev_perm, self.noabort_index
-                )
-                hotkey_str2 = Hotkey.static_hotkey_str(chords, noabort_index)
+                hotkey_str1 = str(self.permutations[-1])
+                hotkey_str2 = str(curr_perm)
                 raise InconsistentNoabortError(
                     f"Noabort indicated in different places among permutations for '{raw_hotkey}': '{hotkey_str1}' vs '{hotkey_str2}'",
-                    perm1=prev_perm,
-                    index1=self.noabort_index,
-                    perm2=chords,
-                    index2=noabort_index,
+                    perm1=self.permutations[-1],
+                    perm1_index=len(self.permutations) - 1,
+                    perm2=curr_perm,
+                    perm2_index=i,
                     line=line,
                 )
 
-            if check_duplicate_permutations and tuple(chords) in seen_chords:
-                assert noabort_index == seen_chords[tuple(chords)][1]
+            if check_duplicate_permutations and perm_tuple in seen_perms:
                 raise DuplicateChordPermutationError(
-                    f"Duplicate permutation '{Hotkey.static_hotkey_str(chords, noabort_index)}'",
-                    dup_perm=tuple(chords),
-                    perm1=(i, noabort_index),
-                    perm2=seen_chords[tuple(chords)],
+                    f"Duplicate permutation '{curr_perm}'",
+                    dup_perm=curr_perm,
+                    perm1_index=i,
+                    perm2_index=seen_perms[perm_tuple],
                     line=line,
                 )
-            seen_chords[tuple(chords)] = (i, noabort_index)
-            self.permutations.append(chords)
-            prev_perm = chords
+            seen_perms[perm_tuple] = i
+            self.permutations.append(curr_perm)
 
         if check_conflicting_permutations:
             tree = self.get_tree(["modifierset"])
@@ -1074,22 +1114,13 @@ class Hotkey:
             ) in tree.find_conflicting_chain_prefixes():
                 conflicts_str = []
                 for conflict in conflicts:
-                    assert conflict.hotkey is not None
-                    assert conflict.permutation_index is not None
-                    chords = self.permutations[conflict.permutation_index]
-                    hk_str = Hotkey.static_hotkey_str(
-                        chords, self.noabort_index
-                    )
-                    conflicts_str.append(f"'{hk_str}'")
+                    assert conflict.permutation is not None
+                    conflicts_str.append(f"'{conflict.permutation}'")
 
-                assert prefix.permutation_index is not None
-                chords = self.permutations[prefix.permutation_index]
-                chain_hk_str = Hotkey.static_hotkey_str(
-                    chords, self.noabort_index
-                )
+                assert prefix.permutation is not None
                 # Fail on the first conflict.
                 raise ConflictingChainPrefixError(
-                    f"'{chain_hk_str}' conflicts with {', '.join(conflicts_str)}",
+                    f"'{prefix.permutation}' conflicts with {', '.join(conflicts_str)}",
                     chain_prefix=prefix,
                     conflicts=conflicts,
                     line=line,
@@ -1098,7 +1129,7 @@ class Hotkey:
         if check_maybe_invalid_keysyms:
             maybe_invalid_keysyms = set()
             for perm in self.permutations:
-                for chord in perm:
+                for chord in perm.chords:
                     if chord.keysym not in KEYSYMS:
                         maybe_invalid_keysyms.add(chord.keysym)
             if maybe_invalid_keysyms:
@@ -1128,35 +1159,6 @@ class Hotkey:
         return tree
 
     @staticmethod
-    def static_hotkey_str(
-        chain: List[Chord], noabort_index: Optional[int] = None
-    ) -> str:
-        """Return the string representation of the chord chain.
-
-        `noabort_index` is the index of the chord where ':' is used, if present.
-        """
-        hotkey = ""
-        for i, chord in enumerate(chain):
-            keysym_prefix = ""
-            if chord.replay:
-                keysym_prefix += "~"
-            if chord.run_event == ChordRunEvent.KEYRELEASE:
-                keysym_prefix += "@"
-            hotkey += " + ".join(
-                it.chain(
-                    sorted(chord.modifiers), [keysym_prefix + chord.keysym]
-                )
-            )
-            if noabort_index is not None and i == noabort_index:
-                hotkey += ": "
-            elif i == len(chain) - 1:
-                # last chord: no ';'
-                continue
-            else:
-                hotkey += "; "
-        return hotkey
-
-    @staticmethod
     def tokenize_static_hotkey(
         hotkey: str, line: Optional[int] = None
     ) -> List[HotkeyToken]:
@@ -1182,9 +1184,9 @@ class Hotkey:
         return tokens
 
     @staticmethod
-    def parse_static_hotkey(
+    def parse_hotkey_permutation(
         tokens: List[HotkeyToken],
-    ) -> Tuple[Optional[int], List[Chord]]:
+    ) -> HotkeyPermutation:
         """Parse a hotkey with pre-expanded {s1,s2,...,sn} sequences.
 
         Returns noabort_index and the sequence of chords.
@@ -1320,7 +1322,7 @@ class Hotkey:
                 mode=mode,
             )
 
-        return (noabort_index, chords)
+        return HotkeyPermutation(chords, noabort_index)
 
 
 @dataclass

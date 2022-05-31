@@ -13,14 +13,18 @@ from typing import (
     Dict,
     List,
     Optional,
-    Sequence,
     Set,
     Tuple,
 )
 
 if TYPE_CHECKING:
     from .metadata import SectionTreeNode
-    from .parser import Chord, HotkeyToken, KeypressTreeNode, _HotkeyParseMode
+    from .parser import (
+        HotkeyPermutation,
+        HotkeyToken,
+        KeypressTreeNode,
+        _HotkeyParseMode,
+    )
 
     TransitionTable = Dict[
         str, Tuple[_HotkeyParseMode, Callable[[HotkeyToken], None]]
@@ -185,17 +189,17 @@ class InconsistentNoabortError(HotkeyParseError):
     def __init__(
         self,
         message: str,
-        perm1: List[Chord],
-        perm2: List[Chord],
-        index1: Optional[int],
-        index2: Optional[int],
+        perm1: HotkeyPermutation,
+        perm1_index: int,
+        perm2: HotkeyPermutation,
+        perm2_index: int,
         line: Optional[int] = None,
     ):
         super().__init__(message=message, line=line)
         self.perm1 = perm1
+        self.perm1_index = perm1_index
         self.perm2 = perm2
-        self.index1 = index1
-        self.index2 = index2
+        self.perm2_index = perm2_index
 
 
 class DuplicateModifierError(HotkeyParseError):
@@ -212,15 +216,15 @@ class DuplicateChordPermutationError(HotkeyError):
     def __init__(
         self,
         message: str,
-        dup_perm: Sequence[Chord],
-        perm1: Tuple[int, Optional[int]],
-        perm2: Tuple[int, Optional[int]],
+        dup_perm: HotkeyPermutation,
+        perm1_index: int,
+        perm2_index: int,
         line: Optional[int] = None,
     ):
         super().__init__(message=message, line=line)
         self.dup_perm = dup_perm
-        self.index_1, self.noabort_index_1 = perm1
-        self.index_2, self.noabort_index_2 = perm2
+        self.perm1_index = perm1_index
+        self.perm2_index = perm2_index
 
 
 class ConflictingChainPrefixError(HotkeyError):

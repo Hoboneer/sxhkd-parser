@@ -56,10 +56,7 @@ def get_perms_to_exec(file: IO[str], keybinds: KeybindDict) -> Iterable[str]:
             continue
         # Normalise
         tokens = Hotkey.tokenize_static_hotkey(line)
-        noabort_index, chords = Hotkey.parse_static_hotkey(tokens)
-        norm_str = Hotkey.static_hotkey_str(
-            chords, noabort_index=noabort_index
-        )
+        norm_str = str(Hotkey.parse_hotkey_permutation(tokens))
         if norm_str in keybinds:
             yield norm_str
 
@@ -289,9 +286,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 bind_or_err.hotkey.permutations,
                 bind_or_err.command.permutations,
             ):
-                norm_str = Hotkey.static_hotkey_str(
-                    hkperm, noabort_index=bind_or_err.hotkey.noabort_index
-                )
+                norm_str = str(hkperm)
                 keybinds[norm_str] = (
                     bind_or_err,
                     cmdperm,

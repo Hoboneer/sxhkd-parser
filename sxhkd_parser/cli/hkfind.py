@@ -23,7 +23,7 @@ from typing import (
 
 from ..errors import SXHKDParserError
 from ..metadata import SectionTreeNode
-from ..parser import Hotkey, Keybind
+from ..parser import Keybind
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
@@ -261,9 +261,6 @@ class CommandPredicate(PredicateExpression):
             zip(keybind.hotkey.permutations, keybind.command.permutations)
         ):
             with tempfile.NamedTemporaryFile("w+") as f:
-                norm_str = Hotkey.static_hotkey_str(
-                    hk, keybind.hotkey.noabort_index
-                )
                 f.write(cmd)
                 f.flush()
                 if not any(
@@ -273,6 +270,7 @@ class CommandPredicate(PredicateExpression):
                 ):
                     cmdline = self.args + [f.name]
                 else:
+                    norm_str = str(hk)
                     cmdline = ctx.replace_str.eval(
                         self.args, hotkey=norm_str, cmd_file=f.name
                     )
@@ -567,7 +565,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     ):
         hk = keybind.hotkey
         for i in matches:
-            perm = hk.permutations[i]
-            print(Hotkey.static_hotkey_str(perm, hk.noabort_index))
+            print(hk.permutations[i])
 
     return 0

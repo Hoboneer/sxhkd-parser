@@ -284,7 +284,7 @@ def find_maybe_invalid_keysyms(keybind: Keybind) -> Iterable[Message]:
     """Yield a `Message` object if `keybind` has possibly invalid keysyms."""
     keysyms = set()
     for perm in keybind.hotkey.permutations:
-        for chord in perm:
+        for chord in perm.chords:
             if chord.keysym not in KEYSYMS:
                 keysyms.add(chord.keysym)
     if keysyms:
@@ -304,11 +304,9 @@ def find_duplicates(tree: HotkeyTree) -> Iterable[Message]:
     for dupset in tree.find_duplicate_chord_nodes():
         assert dupset
         node = dupset[0]
-        assert node.hotkey is not None
-        assert node.permutation_index is not None
-        chords = node.hotkey.permutations[node.permutation_index]
-        noabort_index = node.hotkey.noabort_index
-        hotkey_str = Hotkey.static_hotkey_str(chords, noabort_index)
+        perm = node.permutation
+        assert perm is not None
+        hotkey_str = str(perm)
         # XXX: All `line` attributes will be non-`None` since it's assumed that all were read from a file.
         for line in sorted(
             cast(int, cast(Hotkey, node.hotkey).line) for node in dupset
@@ -320,18 +318,16 @@ def find_prefix_conflicts(tree: HotkeyTree) -> Iterable[Message]:
     """Yield `Message` objects for conflicting chain prefixes in `tree`."""
     for prefix, conflicts in tree.find_conflicting_chain_prefixes():
         assert prefix.hotkey is not None
-        assert prefix.permutation_index is not None
-        chords = prefix.hotkey.permutations[prefix.permutation_index]
-        noabort_index = prefix.hotkey.noabort_index
-        chain_hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
+        perm = prefix.permutation
+        assert perm is not None
+        chain_hk_str = str(perm)
 
         conflicts_str = []
         for conflict in conflicts:
+            perm = conflict.permutation
+            assert perm is not None
+            hk_str = str(perm)
             assert conflict.hotkey is not None
-            assert conflict.permutation_index is not None
-            chords = conflict.hotkey.permutations[conflict.permutation_index]
-            noabort_index = conflict.hotkey.noabort_index
-            hk_str = Hotkey.static_hotkey_str(chords, noabort_index)
             assert conflict.hotkey.line is not None
             if conflict.hotkey.line != prefix.hotkey.line:
                 conflicts_str.append(

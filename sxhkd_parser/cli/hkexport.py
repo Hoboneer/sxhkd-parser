@@ -9,7 +9,7 @@ from typing import Dict, Iterable, List, Optional, Set, Type
 
 from ..errors import SXHKDParserError
 from ..metadata import SectionTreeNode
-from ..parser import Hotkey, expand_sequences
+from ..parser import expand_sequences
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
@@ -139,9 +139,7 @@ class HTMLEmitter(KeybindEmitter):
                     field_base = curr_base + "  "
                     for field in fields:
                         if field == "hotkey":
-                            hotkey_str = Hotkey.static_hotkey_str(
-                                perm, keybind.hotkey.noabort_index
-                            )
+                            hotkey_str = str(perm)
                             yield f'{field_base}<td class="bind">{esc_body(hotkey_str)}</td>'
                         elif field == "mode":
                             yield f'{field_base}<td class="mode">{esc_body(keybind.metadata.get("mode", "normal"))}</td>'
@@ -208,10 +206,7 @@ class PlaintextEmitter(KeybindEmitter):
                     line = []
                     for field in fields:
                         if field == "hotkey":
-                            hotkey_str = Hotkey.static_hotkey_str(
-                                perm, keybind.hotkey.noabort_index
-                            )
-                            line.append(hotkey_str)
+                            line.append(str(perm))
                         elif field == "mode":
                             line.append(keybind.metadata.get("mode", "normal"))
                         elif field == "description" and desc_perms:

@@ -44,7 +44,7 @@ from typing import (
 )
 
 from .errors import MetadataParserError, SectionEOFError, SectionPushError
-from .parser import Chord, Hotkey, Keybind, SpanTree, expand_sequences
+from .parser import Keybind, SpanTree, expand_sequences
 
 __all__ = [
     # General.
@@ -132,8 +132,7 @@ class SectionTreeNode:
                     for hotkey_perm, desc_perm in zip(
                         keybind.hotkey.permutations, permutations
                     ):
-                        assert isinstance(hotkey_perm[0], Chord)
-                        msg = f"{prefix} {Hotkey.static_hotkey_str(hotkey_perm, keybind.hotkey.noabort_index)!r} (line {keybind.line})"
+                        msg = f"{prefix} {str(hotkey_perm)!r} (line {keybind.line})"
                         if "mode" in keybind.metadata:
                             msg = f"{msg} (mode: {keybind.metadata['mode']})"
                         msg = f"{msg}: {desc_perm}"
