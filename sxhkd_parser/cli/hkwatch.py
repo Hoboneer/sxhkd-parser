@@ -7,11 +7,21 @@ import re
 import subprocess
 import sys
 from signal import SIGUSR1, SIGUSR2, signal
-from typing import Any, FrozenSet, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from ..errors import SXHKDParserError
 from ..metadata import MetadataParser, SectionHandler
-from ..parser import Chord, Hotkey, HotkeyTree, KeypressTreeNode
+from ..parser import (
+    Hotkey,
+    HotkeyPermutation,
+    HotkeyTree,
+    HotkeyTreeChordData,
+    HotkeyTreeInternalNode,
+    HotkeyTreeKeysymData,
+    HotkeyTreeLeafNode,
+    HotkeyTreeModifierSetData,
+    HotkeyTreeNode,
+)
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
@@ -66,39 +76,61 @@ def read_config(
 
 
 def find_matching_modsets(
-    modset: FrozenSet[str], node: KeypressTreeNode
-) -> Optional[KeypressTreeNode]:
-    if modset in node.modifierset_children:
-        return node.modifierset_children[modset]
-    for mods, child in node.modifierset_children.items():
-        if mods < modset:
-            return find_matching_modsets(modset, child)
+    modsetdata: HotkeyTreeModifierSetData, node: HotkeyTreeInternalNode
+) -> Optional[HotkeyTreeInternalNode]:
+    modset_children = node.internal_children[HotkeyTreeModifierSetData]
+    modsetnode = modset_children.get(modsetdata)
+    if modsetnode is not None:
+        return modsetnode
+    for mods, child in modset_children.items():
+        if mods.value < modsetdata.value:
+            return find_matching_modsets(modsetdata, child)
     return None
 
 
 def match_hotkey(
-    chords: List[Chord], curr_level: KeypressTreeNode
-) -> Optional[KeypressTreeNode]:
-    if not chords:
-        assert isinstance(curr_level.value, Chord)
+    perm: HotkeyPermutation, chord_index: int, curr_level: HotkeyTreeNode
+) -> Optional[HotkeyTreeNode]:
+    assert perm.chords, "got empty hotkey permutation"
+    if chord_index >= len(perm.chords):
+        assert isinstance(curr_level.data, HotkeyTreeChordData)
+        # May or may not be a leaf node: `perm` might not represent a full permutation.
         return curr_level
+    if isinstance(curr_level, HotkeyTreeLeafNode):
+        # `perm` hasn't been completed yet but already at a leaf.
+        return None
+    assert isinstance(curr_level, HotkeyTreeInternalNode)
 
-    curr, *rest = chords
-    curr_level = find_matching_modsets(curr.modifiers, curr_level)
+    curr = perm.chords[chord_index]
+    curr_level = find_matching_modsets(
+        HotkeyTreeModifierSetData(curr.modifiers), curr_level
+    )
     if curr_level is None:
         return None
 
-    if curr.keysym in curr_level.keysym_children:
-        curr_level = curr_level.keysym_children[curr.keysym]
-    else:
+    curr_level = curr_level.internal_children[HotkeyTreeKeysymData].get(
+        HotkeyTreeKeysymData(curr.keysym)
+    )
+    if curr_level is None:
         return None
 
     # Now find next chord
     for child in curr_level.children:
-        if not isinstance(child.value, Chord):
+        if not isinstance(child.data, HotkeyTreeChordData):
             continue
-        if curr == child.value:
-            return match_hotkey(rest, child)
+        if curr != child.data.value:
+            continue
+        # Only match non-noabort nodes if perm has no noabort index.
+        if perm.noabort_index is None and child.data.noabort:
+            continue
+        if perm.noabort_index is not None:
+            # Only match noabort nodes when we are not at the index where the
+            # noabort node should be.
+            if chord_index != perm.noabort_index and child.data.noabort:
+                continue
+            if chord_index == perm.noabort_index and not child.data.noabort:
+                continue
+        return match_hotkey(perm, chord_index + 1, child)
     return None
 
 
@@ -288,22 +320,28 @@ def main(argv: Optional[List[str]] = None) -> int:
                 ), "expected to see a chord before 'BBegin chain' but got none"
                 tokens = Hotkey.tokenize_static_hotkey(prev_hotkey_str)
                 perm = Hotkey.parse_hotkey_permutation(tokens)
-                failmsg = "got noabort final chord from sxhkd status"
-                assert not perm.chords[-1].noabort, failmsg
+                # sxhkd never seems to print noabort chords to its status fifo.
+                # Also, it doesn't seem to print all hotkeys in a mode.
+                # Therefore this shouldn't be a problem anyway.
+                if perm.noabort_index is not None:
+                    continue
 
                 # Try to match a mode first.
-                perm.chords[-1].noabort = True
-                node = match_hotkey(perm.chords, tree.root)
+                perm.noabort_index = len(perm.chords) - 1
+                node = match_hotkey(perm, 0, tree.root)
                 if node is None:
-                    perm.chords[-1].noabort = False
-                    node = match_hotkey(perm.chords, tree.root)
+                    perm.noabort_index = None
+                    node = match_hotkey(perm, 0, tree.root)
 
-                if node is not None and isinstance(node.value, Chord):
-                    if node.value.noabort:
+                if node is not None:
+                    assert isinstance(
+                        node.data, HotkeyTreeChordData
+                    ), f"got non-chord output ({node.data!r}) from match"
+                    if node.data.noabort:
+                        assert isinstance(node, HotkeyTreeInternalNode)
                         perm_ends = node.find_permutation_ends()
                         assert perm_ends
                         hotkey = perm_ends[0].hotkey
-                        assert hotkey is not None
                         keybind = hotkey.keybind
                         assert keybind is not None
                         curr_mode = keybind.metadata.get(

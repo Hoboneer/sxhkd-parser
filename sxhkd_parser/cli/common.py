@@ -32,7 +32,7 @@ from ..metadata import (
     SimpleSectionHandler,
     StackSectionHandler,
 )
-from ..parser import Hotkey, HotkeyTree, Keybind
+from ..parser import HotkeyTree, Keybind
 
 
 def get_command_name(path: str) -> str:
@@ -308,9 +308,7 @@ def find_duplicates(tree: HotkeyTree) -> Iterable[Message]:
         assert perm is not None
         hotkey_str = str(perm)
         # XXX: All `line` attributes will be non-`None` since it's assumed that all were read from a file.
-        for line in sorted(
-            cast(int, cast(Hotkey, node.hotkey).line) for node in dupset
-        ):
+        for line in sorted(cast(int, node.hotkey.line) for node in dupset):
             yield Message(line, None, f"Duplicate hotkey '{hotkey_str}'")
 
 

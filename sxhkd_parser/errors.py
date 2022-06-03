@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from .parser import (
         HotkeyPermutation,
         HotkeyToken,
-        KeypressTreeNode,
+        HotkeyTreeLeafNode,
         _HotkeyParseMode,
     )
 
@@ -233,8 +233,8 @@ class ConflictingChainPrefixError(HotkeyError):
     def __init__(
         self,
         message: str,
-        chain_prefix: KeypressTreeNode,
-        conflicts: List[KeypressTreeNode],
+        chain_prefix: HotkeyTreeLeafNode,
+        conflicts: List[HotkeyTreeLeafNode],
         line: Optional[int] = None,
     ):
         super().__init__(message=message, line=line)
