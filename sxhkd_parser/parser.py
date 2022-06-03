@@ -479,6 +479,16 @@ class Chord:
         self.run_event = run_event
         self.replay = replay
 
+    def __str__(self) -> str:
+        keysym_prefix = ""
+        if self.replay:
+            keysym_prefix += "~"
+        if self.run_event == ChordRunEvent.KEYRELEASE:
+            keysym_prefix += "@"
+        return " + ".join(
+            it.chain(sorted(self.modifiers), [keysym_prefix + self.keysym])
+        )
+
 
 T = TypeVar("T")
 
@@ -771,16 +781,7 @@ class HotkeyPermutation:
         """Return the string representation of the chord chain."""
         hotkey = ""
         for i, chord in enumerate(self.chords):
-            keysym_prefix = ""
-            if chord.replay:
-                keysym_prefix += "~"
-            if chord.run_event == ChordRunEvent.KEYRELEASE:
-                keysym_prefix += "@"
-            hotkey += " + ".join(
-                it.chain(
-                    sorted(chord.modifiers), [keysym_prefix + chord.keysym]
-                )
-            )
+            hotkey += str(chord)
             if self.noabort_index is not None and i == self.noabort_index:
                 hotkey += ": "
             elif i == len(self.chords) - 1:
