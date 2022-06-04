@@ -6,8 +6,9 @@ import itertools as it
 import re
 import subprocess
 import sys
+from enum import Enum
 from signal import SIGUSR1, SIGUSR2, signal
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, NamedTuple, Optional, Tuple
 
 from ..errors import SXHKDParserError
 from ..metadata import MetadataParser, SectionHandler
@@ -134,6 +135,21 @@ def match_hotkey(
     return None
 
 
+class Mode(Enum):
+    normal = "N"
+    unknown = "U"
+    inchain = "C"
+    usermode = "M"
+
+
+class CurrMode(NamedTuple):
+    mode: Mode
+    message: str
+
+    def __str__(self) -> str:
+        return f"{self.mode.value}{self.message}"
+
+
 PROGNAME = get_command_name(__file__)
 NOTIFY_SEND_ERR_PREFIX = [
     "notify-send",
@@ -255,7 +271,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             do_close = True
 
         prev_hotkey_str: Optional[str] = None
-        curr_mode = "normal"
+        curr_mode = CurrMode(Mode.normal, "normal")
 
         def handle_sigusr2(*_: Any) -> None:
             print(curr_mode, flush=True)
@@ -329,8 +345,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 # Try to match a mode first.
                 perm.noabort_index = len(perm.chords) - 1
                 node = match_hotkey(perm, 0, tree.root)
+                perm.noabort_index = None
                 if node is None:
-                    perm.noabort_index = None
                     node = match_hotkey(perm, 0, tree.root)
 
                 if node is not None:
@@ -344,16 +360,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                         hotkey = perm_ends[0].hotkey
                         keybind = hotkey.keybind
                         assert keybind is not None
-                        curr_mode = keybind.metadata.get(
-                            namespace.mode_field, "__unknown__"
-                        )
-                        print(curr_mode)
+                        nodemode = keybind.metadata.get(namespace.mode_field)
+                        if nodemode is None:
+                            curr_mode = CurrMode(Mode.unknown, str(perm))
+                        else:
+                            curr_mode = CurrMode(Mode.usermode, nodemode)
                     else:
-                        curr_mode = "in-chain"
-                        print(curr_mode)
+                        curr_mode = CurrMode(Mode.inchain, "in-chain")
+                    print(curr_mode)
             elif type_ == "E" and msg == "End chain":
                 # Timeout immediately has 'EEnd chain' after it.
-                curr_mode = "normal"
+                curr_mode = CurrMode(Mode.normal, "normal")
                 print(curr_mode)
             elif type_ == "H":
                 prev_hotkey_str = msg
