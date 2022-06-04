@@ -1264,8 +1264,6 @@ class Hotkey:
     ) -> HotkeyPermutation:
         """Parse a hotkey with pre-expanded {s1,s2,...,sn} sequences.
 
-        Returns noabort_index and the sequence of chords.
-
         Based on the informal grammar from the sxhkd 0.6.2 manual on Debian Bullseye.
         """
         noabort_index: Optional[int] = None
