@@ -336,7 +336,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 ), "expected to see a chord before 'BBegin chain' but got none"
                 tokens = Hotkey.tokenize_static_hotkey(prev_hotkey_str)
                 perm = Hotkey.parse_hotkey_permutation(tokens)
-                # sxhkd never seems to print noabort chords to its status fifo.
+                # sxhkd never seems to print chains with ':' to its status fifo.
                 # Also, it doesn't seem to print all hotkeys in a mode.
                 # Therefore this shouldn't be a problem anyway.
                 if perm.noabort_index is not None:
