@@ -106,7 +106,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser_keybinds = subparsers.add_parser(
         "keybinds",
         help="print summary of parsed keybinds with their metadata",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_keybinds.add_argument(
         "--include-sections",
@@ -124,27 +123,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser_hotkey_tree = subparsers.add_parser(
         "hotkey-tree",
         help="print tree containing the keypresses needed for each hotkey permutation",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    braced_all_choices = "{%s}" % ",".join(HotkeyTree.INTERNAL_NODE_TYPES)
     parser_hotkey_tree.add_argument(
         "--internal-nodes",
         "-I",
         type=parse_internal_nodes,
         default=INTERNAL_NODES,
-        help="the sequence of internal node types to be included in the tree",
+        help=f"the comma-separated sequence of internal node types to be included in the tree (choices: {braced_all_choices}) (default: {','.join(INTERNAL_NODES)})",
     )
 
     parser_span_tree = subparsers.add_parser(
         "span-tree",
         help="print tree containing the spans of text resulting from sequence expansion",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser_span_tree.add_argument(
         "--type",
         "-t",
         choices=["both", "hotkey", "command"],
         default="both",
-        help="whether to include span trees of hotkeys or commands (or both)",
+        help="whether to include span trees of hotkeys or commands (or both) (default: %(default)s)",
     )
     parser_span_tree.add_argument(
         "--levels",
