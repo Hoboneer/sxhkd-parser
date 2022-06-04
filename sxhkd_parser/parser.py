@@ -744,20 +744,20 @@ class HotkeyTreeLeafNode(HotkeyTreeNode):
 
     ends_permutation = True
 
-    permutation_index: int
     hotkey: Hotkey
+    permutation_index: int
 
     def __init__(
         self,
         data: HotkeyTreeNodeData[Any],
-        permutation_index: int,
         hotkey: Hotkey,
+        permutation_index: int,
     ):
         super().__init__(data)
         assert isinstance(data, HotkeyTreeChordData)
         assert not data.noabort, f"got leaf node with noabort (data: {data})"
-        self.permutation_index = permutation_index
         self.hotkey = hotkey
+        self.permutation_index = permutation_index
 
     @property
     def permutation(self) -> HotkeyPermutation:
@@ -904,12 +904,12 @@ class HotkeyTree:
         if len(node_values) == 1:
             assert isinstance(node_values[0], HotkeyTreeChordData)
             return HotkeyTreeLeafNode(
-                node_values[0], permutation_index=index, hotkey=hotkey
+                node_values[0], hotkey=hotkey, permutation_index=index
             )
 
         root = new_node = HotkeyTreeInternalNode(node_values[0])
         leaf = HotkeyTreeLeafNode(
-            node_values[-1], permutation_index=index, hotkey=hotkey
+            node_values[-1], hotkey=hotkey, permutation_index=index
         )
         assert isinstance(leaf.data, HotkeyTreeChordData)
         # No need to merge as this is just one permutation.
