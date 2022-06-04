@@ -43,44 +43,30 @@ def print_span_tree_level(level: Span) -> None:
         print([item.text for item in level.choices])
 
 
-def print_keybind(keybind: Keybind, level: int = 0) -> None:
-    prefix = "\t" * level
-    print(f"{prefix}Hotkey:")
-    print(f"{prefix}\tline: {keybind.hotkey.line}")
-    print(f"{prefix}\traw: {keybind.hotkey.raw}")
-    print(f"{prefix}\tnoabort_index: {keybind.hotkey.noabort_index}")
-    print(f"{prefix}Command:")
-    print(f"{prefix}\tline: {keybind.command.line}")
-    print(f"{prefix}\traw: {keybind.command.raw}")
-    print(f"{prefix}\tsynchronous?: {keybind.command.synchronous}")
-    print(f"{prefix}Metadata:")
+def print_keybind(keybind: Keybind) -> None:
+    print("Hotkey:")
+    print(f"\tline: {keybind.hotkey.line}")
+    print(f"\traw: {keybind.hotkey.raw}")
+    print(f"\tnoabort_index: {keybind.hotkey.noabort_index}")
+    print("Command:")
+    print(f"\tline: {keybind.command.line}")
+    print(f"\traw: {keybind.command.raw}")
+    print(f"\tsynchronous?: {keybind.command.synchronous}")
+    print("Metadata:")
     for key, val in keybind.metadata.items():
-        print(f"{prefix}\t{key}: {val!r}")
+        print(f"\t{key}: {val!r}")
 
 
 def print_sections(
-    dirname: List[Optional[str]], node: SectionTreeNode, inline: bool = False
+    dirname: List[Optional[str]], node: SectionTreeNode
 ) -> None:
     currpath = dirname + [node.name]
-    if inline:
-        prefix = ""
-    else:
-        prefix = "\t" * len(dirname)
-    if not inline:
-        print(f"{prefix}Section path: {currpath}")
-        print(f"{prefix}Section start: {node.start}")
-        print(f"{prefix}Section end: {node.end}")
     for keybind in node.keybind_children:
-        if inline:
-            print_keybind(keybind)
-        else:
-            print_keybind(keybind, len(dirname))
-        if inline:
-            print(f"{prefix}Section path: {currpath}")
+        print_keybind(keybind)
+        print(f"Section path: {currpath}")
         print()
-    print()
     for subsection in node.children:
-        print_sections(currpath, subsection, inline=inline)
+        print_sections(currpath, subsection)
 
 
 PROGNAME = get_command_name(__file__)
@@ -112,12 +98,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-S",
         action="store_true",
         help="include section information of each keybind",
-    )
-    parser_keybinds.add_argument(
-        "--inline-sections",
-        "-i",
-        action="store_true",
-        help="inline section information of each keybind as a keyword-value pair instead of nested indentation",
     )
 
     parser_hotkey_tree = subparsers.add_parser(
@@ -179,9 +159,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     if namespace.mode == "keybinds":
         if namespace.include_sections:
-            print_sections(
-                [], section_handler.root, inline=namespace.inline_sections
-            )
+            print_sections([], section_handler.root)
         else:
             for keybind in keybinds:
                 print_keybind(keybind)
