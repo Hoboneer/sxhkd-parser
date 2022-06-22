@@ -34,12 +34,15 @@ from dataclasses import dataclass, field
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Dict,
     Iterable,
     List,
     Optional,
     Pattern,
+    Sequence,
     Tuple,
+    Type,
     Union,
 )
 
@@ -242,7 +245,20 @@ class SectionHandler(ABC):
         - push
         - root
         - current_section
+
+    Class variables:
+        - TYPENAME: name of section type used in cli and parser directives.
+        - OPTIONS: sequence of option names used to create the SectionHandler instance.
+        - TYPES (only for `SectionHandler` itself): mapping of typenames to subclasses.
     """
+
+    TYPENAME: ClassVar[str]
+    OPTIONS: ClassVar[Sequence[str]]
+
+    TYPES: ClassVar[Dict[str, Type[SectionHandler]]] = {}
+
+    def __init_subclass__(cls, *args: Any, **kwargs: Any):
+        SectionHandler.TYPES[cls.TYPENAME] = cls
 
     @abstractmethod
     def reset(self) -> None:
@@ -284,6 +300,9 @@ class SectionHandler(ABC):
 @dataclass
 class RootSectionHandler(SectionHandler):
     """Handler for a single-section sxhkdrc, where all keybinds are children of the root."""
+
+    TYPENAME = "none"
+    OPTIONS: ClassVar[Sequence[str]] = []
 
     _section: SectionTreeNode
 
@@ -327,6 +346,9 @@ class SimpleSectionHandler(SectionHandler):
         section_header_re: the pattern to match and parse out section headers.
         sections: the sections of the config in the order they were defined.
     """
+
+    TYPENAME = "simple"
+    OPTIONS = ["header"]
 
     section_header_re: Pattern[str]
     sections: List[SectionTreeNode]
@@ -401,6 +423,9 @@ class StackSectionHandler(SectionHandler):
         section_header_re: the pattern to match and parse out section headers.
         section_footer_re: the pattern to match section footers.
     """
+
+    TYPENAME = "stack"
+    OPTIONS = ["header", "footer"]
 
     section_header_re: Pattern[str]
     section_footer_re: Pattern[str]
@@ -504,7 +529,20 @@ class MetadataParser(ABC):
 
     Abstract methods:
         - parse
+
+    Class variables:
+        - TYPENAME: name of section type used in cli and parser directives.
+        - OPTIONS: sequence of option names used to create the SectionHandler instance.
+        - TYPES (only for `SectionHandler` itself): mapping of typenames to subclasses.
     """
+
+    TYPENAME: ClassVar[str]
+    OPTIONS: ClassVar[Sequence[str]]
+
+    TYPES: ClassVar[Dict[str, Type[MetadataParser]]] = {}
+
+    def __init_subclass__(cls, *args: Any, **kwargs: Any):
+        MetadataParser.TYPES[cls.TYPENAME] = cls
 
     @abstractmethod
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
@@ -515,6 +553,9 @@ class MetadataParser(ABC):
 @dataclass
 class NullMetadataParser(MetadataParser):
     """Parser that always returns an empty mapping when parsing."""
+
+    TYPENAME = "none"
+    OPTIONS: ClassVar[Sequence[str]] = []
 
     def parse(self, lines: Iterable[str], start_line: int) -> Dict[str, Any]:
         """Return an empty dict."""
@@ -528,6 +569,9 @@ class SimpleDescriptionParser(MetadataParser):
     Instance variables:
         description_re: the pattern to parse out the description from the comment.
     """
+
+    TYPENAME = "simple"
+    OPTIONS = ["description"]
 
     description_re: Pattern[str]
 
@@ -567,6 +611,9 @@ class KeyValueMetadataParser(MetadataParser):
         pair_re: the pattern to parse out key-value pairs.
         empty_re: the pattern to match empty metadata lines.
     """
+
+    TYPENAME = "key-value"
+    OPTIONS = ["pair", "empty"]
 
     pair_re: Pattern[str]
     empty_re: Pattern[str]  # part of description but no pair
