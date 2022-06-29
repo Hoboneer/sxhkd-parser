@@ -570,7 +570,6 @@ class HotkeyTreeNode(ABC):
         ends_permutation: whether this type of node ends a permutation.
 
     Invariants:
-        - a node ends a permutation (i.e., is a leaf node) IFF the data in the node is a chord.
         - each level has no duplicate nodes EXCEPT among leaf nodes.
     """
 
