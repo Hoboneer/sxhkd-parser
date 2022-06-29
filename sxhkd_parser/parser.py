@@ -1187,7 +1187,12 @@ class Hotkey:
 
     @staticmethod
     def tokenize(hotkey: str, line: Optional[int] = None) -> List[HotkeyToken]:
-        """Tokenize a hotkey with pre-expanded {s1,s2,...,sn} sequences.
+        """Tokenize a hotkey without sequences of the form {s1,s2,...,sn}.
+
+        `hotkey` can be obtained from input that contains sequences by passing
+        it to `expand_sequences`, and then stringifying and passing one
+        permutation from the `generate_permutations` method of the `SpanTree`
+        output to each call of `tokenize`.
 
         Setting `line` to an int will include it in any error messages.
         It should be the starting line number of the hotkey.
