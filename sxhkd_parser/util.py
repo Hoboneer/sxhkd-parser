@@ -1,22 +1,58 @@
 """Convenience functions for using the library."""
+import re
 from os import PathLike
 from typing import (
     Any,
+    Callable,
     Dict,
+    Generator,
     Iterable,
     List,
     Mapping,
     Optional,
     TextIO,
+    Tuple,
+    Type,
+    TypeVar,
     Union,
     cast,
 )
 
-from .errors import MissingHotkeyError, SXHKDParserError
-from .metadata import MetadataParser, NullMetadataParser, SectionHandler
+from .errors import (
+    MissingHotkeyError,
+    SXHKDParserError,
+    UnterminatedParserConfigDirectiveError,
+)
+from .metadata import MetadataParser, SectionHandler
 from .parser import Keybind
 
 __all__ = ["read_sxhkdrc"]
+
+
+T = TypeVar("T", SectionHandler, MetadataParser)
+
+
+def _generate_from_options_func(
+    type_: Type[T],
+) -> Callable[[Dict[str, str]], T]:
+    def cls_from_options(options: Dict[str, str]) -> T:
+        typename = options["type"]
+        args = []
+        cls = type_.TYPES[typename]
+        for opt in cls.OPTIONS:
+            args.append(options[opt])
+        return cls(*args)
+
+    return cls_from_options
+
+
+make_section_handler_from_options = _generate_from_options_func(SectionHandler)  # type: ignore
+make_metadata_parser_from_options = _generate_from_options_func(MetadataParser)  # type: ignore
+
+
+DIRECTIVE_COMMENT_RE = re.compile(
+    r"^#\?\s*(?P<name>[A-Za-z0-9-]+):\s*(?P<value>.+)\s*$"
+)
 
 
 def read_sxhkdrc(
@@ -24,7 +60,11 @@ def read_sxhkdrc(
     section_handler: Optional[SectionHandler] = None,
     metadata_parser: Optional[MetadataParser] = None,
     hotkey_errors: Optional[Mapping[str, bool]] = None,
-) -> Iterable[Union[SXHKDParserError, Keybind]]:
+) -> Generator[
+    Union[SXHKDParserError, Keybind],
+    None,
+    Tuple[Optional[SectionHandler], Optional[MetadataParser]],
+]:
     """Parse keybinds from a given file or path, yielding a stream.
 
     `file` may be a filename, `os.PathLike`, or an opened file.  In the case of
@@ -59,8 +99,6 @@ def read_sxhkdrc(
         f = file
         # Passed in a file object.
         close_io = False
-    if metadata_parser is None:
-        metadata_parser = NullMetadataParser()
 
     hotkey: Optional[List[str]] = None
     hotkey_start_line: Optional[int] = None
@@ -74,6 +112,7 @@ def read_sxhkdrc(
     line_no: int = 0
     line_block_start: int
     metadata: Dict[str, Any] = {}
+    num_yields = 0
     try:
         while True:
             line = f.readline()
@@ -88,6 +127,57 @@ def read_sxhkdrc(
                 # Cut off any isolated comment blocks.
                 comment_block_start_line = None
                 comment_buf.clear()
+                continue
+
+            # Only accept inline specification of section and/or metadata type
+            # before any keybinds.
+            if num_yields == 0 and re.match(
+                r"^#\?\s*Begin-Parser-Config\s*$", line
+            ):
+                format_lines = []
+                line = f.readline()
+                if not line:
+                    raise UnterminatedParserConfigDirectiveError(
+                        "sxhkdrc ended before End-Parser-Config", line=line_no
+                    )
+                line_no += 1
+                while not re.match(r"^#\?\s*End-Parser-Config\s*$", line):
+                    assert line.startswith(
+                        "#"
+                    ), f"line {line_no} must be a comment ({line!r})"
+                    format_lines.append(line.rstrip("\n"))
+                    line = f.readline()
+                    if not line:
+                        raise UnterminatedParserConfigDirectiveError(
+                            "sxhkdrc ended before End-Parser-Config",
+                            line=line_no,
+                        )
+                    line_no += 1
+                directives = {}
+                for fline in format_lines:
+                    m = DIRECTIVE_COMMENT_RE.match(fline)
+                    if not m:
+                        continue
+                    name = cast(str, m.group("name")).lower()
+                    value = cast(str, m.group("value"))
+                    directives[name] = value
+                # TODO: handle missing keys
+                if section_handler is None and "section-type" in directives:
+                    section_handler = make_section_handler_from_options(
+                        {
+                            re.sub(r"^section-", "", name): value
+                            for name, value in directives.items()
+                            if name.startswith("section-")
+                        }
+                    )
+                if metadata_parser is None and "metadata-type" in directives:
+                    metadata_parser = make_metadata_parser_from_options(
+                        {
+                            re.sub(r"^metadata-", "", name): value
+                            for name, value in directives.items()
+                            if name.startswith("metadata-")
+                        }
+                    )
                 continue
 
             if line.startswith("#"):
@@ -143,6 +233,7 @@ def read_sxhkdrc(
                     if section_handler is not None:
                         section_handler.current_section.add_keybind(keybind)
                     yield keybind
+                num_yields += 1
 
                 hotkey = command = None
                 hotkey_start_line = command_start_line = None
@@ -155,15 +246,15 @@ def read_sxhkdrc(
                 hotkey = lines.copy()
                 hotkey_start_line = line_block_start
                 lines.clear()
-                if comment_buf:
+                if comment_buf and metadata_parser is not None:
                     metadata = metadata_parser.parse(
                         comment_buf,
                         start_line=cast(int, comment_block_start_line),
                     )
-                    comment_buf.clear()
-                    comment_block_start_line = None
                 else:
                     metadata = {}
+                comment_buf.clear()
+                comment_block_start_line = None
 
     except Exception:
         raise
@@ -174,3 +265,4 @@ def read_sxhkdrc(
         finally:
             if close_io:
                 f.close()
+            return (section_handler, metadata_parser)

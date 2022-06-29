@@ -34,6 +34,8 @@ __all__ = [
     "SXHKDParserError",
     # ---
     "ConfigReadError",
+    "DirectiveError",
+    "UnterminatedParserConfigDirectiveError",
     "MissingHotkeyError",
     # ---
     "KeybindError",
@@ -88,6 +90,18 @@ class SXHKDParserError(Exception):
 
 class ConfigReadError(SXHKDParserError):
     """Base class for errors related to reading sxhkdrc files."""
+
+    pass
+
+
+class DirectiveError(ConfigReadError):
+    """Base class for errors related to parser directives for sxhkdrc files."""
+
+    pass
+
+
+class UnterminatedParserConfigDirectiveError(DirectiveError):
+    """Directive for inline specification of section and/or metadata type was left unterminated."""
 
     pass
 

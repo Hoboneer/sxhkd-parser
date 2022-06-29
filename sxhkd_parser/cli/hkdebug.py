@@ -136,18 +136,27 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     keybinds = []
     try:
-        for bind_or_err in read_sxhkdrc(
-            namespace.sxhkdrc,
-            section_handler=section_handler,
-            metadata_parser=metadata_parser,
-            # Ignore them: it is another tool's job to check.
-            hotkey_errors=IGNORE_HOTKEY_ERRORS,
-        ):
-            if isinstance(bind_or_err, SXHKDParserError):
-                msg = format_error_msg(bind_or_err, namespace.sxhkdrc)
-                print(msg, file=sys.stderr)
-                continue
-            keybinds.append(bind_or_err)
+        gen = iter(
+            read_sxhkdrc(
+                namespace.sxhkdrc,
+                section_handler=section_handler,
+                metadata_parser=metadata_parser,
+                # Ignore them: it is another tool's job to check.
+                hotkey_errors=IGNORE_HOTKEY_ERRORS,
+            )
+        )
+        while True:
+            try:
+                bind_or_err = next(gen)
+            except StopIteration as estop:
+                section_handler, metadata_parser = estop.value
+                break
+            else:
+                if isinstance(bind_or_err, SXHKDParserError):
+                    msg = format_error_msg(bind_or_err, namespace.sxhkdrc)
+                    print(msg, file=sys.stderr)
+                    continue
+                keybinds.append(bind_or_err)
     except SXHKDParserError as e:
         print_exceptions(e, namespace.sxhkdrc, file=sys.stderr)
         return 1
@@ -159,7 +168,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     if namespace.mode == "keybinds":
         if namespace.include_sections:
-            print_sections([], section_handler.root)
+            if section_handler is None:
+                section_root = SectionTreeNode(None, start=1, end=None)
+                for keybind in keybinds:
+                    section_root.add_keybind(keybind)
+            else:
+                section_root = section_handler.root
+            print_sections([], section_root)
         else:
             for keybind in keybinds:
                 print_keybind(keybind)

@@ -22,17 +22,12 @@ from typing import (
 from .._package import __version__
 from ..errors import SXHKDParserError
 from ..keysyms import KEYSYMS
-from ..metadata import (
-    KeyValueMetadataParser,
-    MetadataParser,
-    NullMetadataParser,
-    RootSectionHandler,
-    SectionHandler,
-    SimpleDescriptionParser,
-    SimpleSectionHandler,
-    StackSectionHandler,
-)
+from ..metadata import MetadataParser, SectionHandler
 from ..parser import HotkeyTree, Keybind
+from ..util import (
+    make_metadata_parser_from_options,
+    make_section_handler_from_options,
+)
 
 
 def get_command_name(path: str) -> str:
@@ -70,14 +65,18 @@ BASE_PARSER.add_argument(
 )
 _section_group = BASE_PARSER.add_argument_group("section config")
 _section_group.add_argument(
-    "--section-type", choices=["none", "simple", "stack"], default="none"
+    "--section-type",
+    choices=["auto", "none", "simple", "stack"],
+    default="auto",
 )
 _section_group.add_argument(
+    "--section-header",
     "--header",
     metavar="REGEX",
     help="regex for the header of the 'simple' and 'stack' types: it must have a named group 'name'",
 )
 _section_group.add_argument(
+    "--section-footer",
     "--footer",
     metavar="REGEX",
     help="regex for the footer of the 'stack' type",
@@ -86,20 +85,23 @@ _section_group.add_argument(
 _metadata_group = BASE_PARSER.add_argument_group("metadata config")
 _metadata_group.add_argument(
     "--metadata-type",
-    choices=["none", "simple", "key-value"],
-    default="none",
+    choices=["auto", "none", "simple", "key-value"],
+    default="auto",
 )
 _metadata_group.add_argument(
+    "--metadata-description",
     "--description",
     metavar="REGEX",
     help="regex for the 'simple' metadata type: it must have a named group 'description'",
 )
 _metadata_group.add_argument(
+    "--metadata-pair",
     "--pair",
     metavar="REGEX",
     help="regex for key-value pairs of the 'key-value' metadata type: it must have named groups 'key' and 'value'",
 )
 _metadata_group.add_argument(
+    "--metadata-empty",
     "--empty",
     metavar="REGEX",
     help="regex for empty lines of metadata of type 'key-value'",
@@ -115,43 +117,30 @@ BASE_PARSER.add_argument(
 
 def process_args(
     namespace: argparse.Namespace,
-) -> Tuple[SectionHandler, MetadataParser]:
+) -> Tuple[Optional[SectionHandler], Optional[MetadataParser]]:
     """Preprocess the command-line arguments for common options."""
-    section_handler: SectionHandler
-    if namespace.section_type == "none":
-        section_handler = RootSectionHandler()
-    elif namespace.section_type in ("simple", "stack"):
-        if not namespace.header:
-            raise RuntimeError("got no section header regex")
-        if namespace.section_type == "simple":
-            section_handler = SimpleSectionHandler(namespace.header)
-        else:
-            if not namespace.footer:
-                raise RuntimeError("got no section footer regex")
-            section_handler = StackSectionHandler(
-                namespace.header, namespace.footer
-            )
+    section_handler: Optional[SectionHandler]
+    if namespace.section_type == "auto":
+        section_handler = None
     else:
-        raise RuntimeError(
-            f"unreachable! invalid section type {namespace.section_type}"
+        section_handler = make_section_handler_from_options(
+            {
+                re.sub(r"^section_", "", name): value
+                for name, value in namespace.__dict__.items()
+                if name.startswith("section_")
+            }
         )
 
-    metadata_parser: MetadataParser
-    if namespace.metadata_type == "none":
-        metadata_parser = NullMetadataParser()
-    elif namespace.metadata_type == "simple":
-        if not namespace.description:
-            raise RuntimeError("got no description regex")
-        metadata_parser = SimpleDescriptionParser(namespace.description)
-    elif namespace.metadata_type == "key-value":
-        if not namespace.pair or not namespace.empty:
-            raise RuntimeError("got no pair regex or no empty regex")
-        metadata_parser = KeyValueMetadataParser(
-            namespace.pair, namespace.empty
-        )
+    metadata_parser: Optional[MetadataParser]
+    if namespace.metadata_type == "auto":
+        metadata_parser = None
     else:
-        raise RuntimeError(
-            f"unreachable! invalid description type {namespace.description_type}"
+        metadata_parser = make_metadata_parser_from_options(
+            {
+                re.sub(r"^metadata_", "", name): value
+                for name, value in namespace.__dict__.items()
+                if name.startswith("metadata_")
+            }
         )
 
     return (section_handler, metadata_parser)
