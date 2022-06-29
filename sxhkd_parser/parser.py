@@ -557,10 +557,6 @@ class HotkeyTreeChordData(HotkeyTreeNodeData[Chord]):
 class HotkeyTreeNode(ABC):
     """Node for a decision tree representing the keypresses needed to complete a hotkey.
 
-    Comprises `HotkeyTree` objects, within which Hotkeys are each represented
-    by a path from root to leaf, with each `HotkeyTreeChordData` in that path
-    being the key-chords needed to complete it.
-
     NOTE: This class should never be instantiated--enforced by inheriting from `ABC`.
 
     Instance variables:
@@ -747,6 +743,10 @@ class HotkeyPermutation:
 @dataclass
 class HotkeyTree:
     """The decision tree for a single hotkey or multiple hotkeys.
+
+    Hotkeys are each represented by a path from root to leaf composed of
+    `HotkeyTreeNode` objects, with each `HotkeyTreeChordData` in that path
+    being the key-chords needed to complete it.
 
     Instance variables:
         root: the root `HotkeyTreeNode` with data of type `HotkeyTreeRootData`.
