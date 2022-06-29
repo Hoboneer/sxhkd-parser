@@ -608,34 +608,33 @@ class HotkeyTreeInternalNode(HotkeyTreeNode):
             self.internal_children[cls] = {}
 
     @overload
-    def merge_node(
-        self,
-        node: HotkeyTreeInternalNode,
+    def add_child(
+        self, node: HotkeyTreeInternalNode
     ) -> HotkeyTreeInternalNode:
         ...
 
     @overload
-    def merge_node(
-        self,
-        node: HotkeyTreeLeafNode,
-    ) -> HotkeyTreeLeafNode:
+    def add_child(self, node: HotkeyTreeLeafNode) -> HotkeyTreeLeafNode:
         ...
 
     @overload
-    def merge_node(
+    def add_child(self, node: HotkeyTreeNode) -> HotkeyTreeNode:
+        ...
+
+    def add_child(
         self,
         node: HotkeyTreeNode,
     ) -> HotkeyTreeNode:
-        ...
-
-    def merge_node(self, node: HotkeyTreeNode) -> HotkeyTreeNode:
-        """Add `node` as a child of this node, ensuring no duplicates.
+        """Add the subtree rooted at `node` as a child, ensuring no duplicate internal nodes.
 
         Cases:
-            - `node` is internal but there is one that already exists at the current node:
-                merge the children of `node` into the one already there, and then return the one already there.
-            - otherwise:
-                add `node` as a child of the current node, and then return `node`.
+            - `node` is a leaf node:
+                return `node`
+            - `node` is an internal node which doesn't already exist at this node:
+                return `node`
+            - `node` is a duplicate internal node:
+                recursively merge the subtrees of `node` into the one already there, ensuring no duplicate internal nodes
+                return the existing internal node
 
         NOTE:
             Permutation-ending nodes (i.e., leaf nodes) are left unmerged in
@@ -643,67 +642,21 @@ class HotkeyTreeInternalNode(HotkeyTreeNode):
             and a hotkey permutation.
         """
         if isinstance(node, HotkeyTreeLeafNode):
-            self.add_child(node)
+            self.children.append(node)
             return node
         assert isinstance(node, HotkeyTreeInternalNode)
 
         curr_children = self.internal_children[type(node.data)]
         existing_node = curr_children.get(node.data)
         if existing_node is None:
-            self.add_child(node)
+            curr_children[node.data] = node
+            self.children.append(node)
+            # `node` is unique at this path.
             return node
         for child in node.children:
             # Ignore return value as we only care about the highest-level internal node.
-            existing_node.merge_node(child)
+            existing_node.add_child(child)
         return existing_node
-
-    @overload
-    def add_child(
-        self, node: HotkeyTreeInternalNode, merge: bool = False
-    ) -> HotkeyTreeInternalNode:
-        ...
-
-    @overload
-    def add_child(
-        self, node: HotkeyTreeLeafNode, merge: bool = False
-    ) -> HotkeyTreeLeafNode:
-        ...
-
-    @overload
-    def add_child(
-        self, node: HotkeyTreeNode, merge: bool = False
-    ) -> HotkeyTreeNode:
-        ...
-
-    def add_child(
-        self,
-        node: HotkeyTreeNode,
-        merge: bool = False,
-    ) -> HotkeyTreeNode:
-        """Add `node` as a child of this node.
-
-        Cases:
-            - `merge` is True:
-                call `merge_node(node)`, and then return its result.
-            - `node` is an internal node but one already exists at this node:
-                fail.
-            - otherwise:
-                add `node` as a child of the current node, and then return `node`.
-        """
-        if isinstance(node, HotkeyTreeLeafNode):
-            self.children.append(node)
-            return node
-        assert isinstance(node, HotkeyTreeInternalNode)
-
-        curr_children = self.internal_children[type(node.data)]
-        if merge:
-            return self.merge_node(node)
-        elif node.data in curr_children:
-            raise ValueError(f"'{node.data}' already exists at this node.")
-        else:
-            curr_children[node.data] = node
-            self.children.append(node)
-            return node
 
     def remove_child(self, index: int) -> HotkeyTreeNode:
         """Remove the child at `index` in `children` and return it."""
@@ -859,7 +812,7 @@ class HotkeyTree:
         """Merge the tree of chord permutations for `hotkey` into this tree."""
         for i, perm in enumerate(hotkey.permutations):
             subtree = self._create_subtree_from_chord_chain(perm, i, hotkey)
-            self.root.add_child(subtree, merge=True)
+            self.root.add_child(subtree)
 
     def merge_tree(self, tree: HotkeyTree) -> None:
         """Merge `tree` into this tree."""
@@ -868,7 +821,7 @@ class HotkeyTree:
                 f"Trees had different internal node types ({self.internal_nodes} vs {tree.internal_nodes}). Not merging."
             )
         for child in tree.root.children:
-            self.root.merge_node(child)
+            self.root.add_child(child)
 
     def _create_subtree_from_chord_chain(
         self, perm: HotkeyPermutation, index: int, hotkey: Hotkey
