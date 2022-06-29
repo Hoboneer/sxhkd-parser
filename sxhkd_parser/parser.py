@@ -1090,7 +1090,7 @@ class Hotkey:
         seen_perms: Dict[Tuple[Tuple[Chord, ...], Optional[int]], int] = {}
 
         for i, flat_perm in enumerate(self.span_tree.generate_permutations()):
-            tokens = Hotkey.tokenize_static_hotkey(str(flat_perm), self.line)
+            tokens = Hotkey.tokenize(str(flat_perm), self.line)
             try:
                 curr_perm = Hotkey.parse_hotkey_permutation(tokens)
             except HotkeyParseError as e:
@@ -1186,9 +1186,7 @@ class Hotkey:
         return tree
 
     @staticmethod
-    def tokenize_static_hotkey(
-        hotkey: str, line: Optional[int] = None
-    ) -> List[HotkeyToken]:
+    def tokenize(hotkey: str, line: Optional[int] = None) -> List[HotkeyToken]:
         """Tokenize a hotkey with pre-expanded {s1,s2,...,sn} sequences.
 
         Setting `line` to an int will include it in any error messages.

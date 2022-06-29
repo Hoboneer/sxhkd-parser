@@ -55,7 +55,7 @@ def get_perms_to_exec(file: IO[str], keybinds: KeybindDict) -> Iterable[str]:
         if not line.strip():
             continue
         # Normalise
-        tokens = Hotkey.tokenize_static_hotkey(line)
+        tokens = Hotkey.tokenize(line)
         norm_str = str(Hotkey.parse_hotkey_permutation(tokens))
         if norm_str in keybinds:
             yield norm_str
