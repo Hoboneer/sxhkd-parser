@@ -239,7 +239,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         get_command_name(__file__),
         description="Export keybinds in various formats",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
     )
     parser.add_argument(
@@ -247,14 +246,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-f",
         choices=["html", "txt"],
         default="html",
-        help="the format to export to",
+        help="the format to export to (default: %(default)s)",
     )
     parser.add_argument(
         "--fields",
         "-F",
         default=["hotkey", "description", "mode"],
         type=lambda x: x.split(","),
-        help="the metadata fields and the order in which to print them ('hotkey' isn't strictly metadata, but oh well)",
+        help="the metadata fields and the order in which to print them ('hotkey' isn't strictly metadata, but oh well) (default: %(default)s)",
     )
     parser.add_argument(
         "--expand",
@@ -268,7 +267,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-R",
         choices=["all", "sections", "keybinds"],
         default="all",
-        help="what to print",
+        help="what to print (default: %(default)s)",
     )
     records_group.add_argument(
         "--sections-only",

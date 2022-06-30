@@ -506,7 +506,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         get_command_name(__file__),
         usage="%(prog)s [option ...] [expression]",
         description="Find hotkeys that match a search expression",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
     )
     add_repl_str_options(parser)

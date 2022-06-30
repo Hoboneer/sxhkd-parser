@@ -70,7 +70,10 @@ BASE_PARSER.add_argument(
 )
 _section_group = BASE_PARSER.add_argument_group("section config")
 _section_group.add_argument(
-    "--section-type", choices=["none", "simple", "stack"], default="none"
+    "--section-type",
+    choices=["none", "simple", "stack"],
+    default="none",
+    help="set the type of sections that the config uses (default: %(default)s)",
 )
 _section_group.add_argument(
     "--header",
@@ -88,6 +91,7 @@ _metadata_group.add_argument(
     "--metadata-type",
     choices=["none", "simple", "key-value"],
     default="none",
+    help="set the type of metadata that the config uses (default: %(default)s)",
 )
 _metadata_group.add_argument(
     "--description",
@@ -109,7 +113,7 @@ BASE_PARSER.add_argument(
     "--sxhkdrc",
     "-c",
     default=find_sxhkdrc(),
-    help="the location of the config file",
+    help="the location of the config file (default: $XDG_CONFIG_HOME/sxhkd/sxhkdrc)",
 )
 
 
@@ -226,7 +230,7 @@ def add_repl_str_options(parser: argparse.ArgumentParser) -> None:
         default="@",
         action="store",
         type=_parse_repl_str,
-        help="set replacement string for hotkey text",
+        help="set replacement string for hotkey text (default: %(default)s)",
     )
     parser.add_argument(
         "--command-replace-str",
@@ -234,7 +238,7 @@ def add_repl_str_options(parser: argparse.ArgumentParser) -> None:
         default="%",
         action="store",
         type=_parse_repl_str,
-        help="set replacement string for the filename of the command text",
+        help="set replacement string for the filename of the command text (default: %(default)s)",
     )
 
 

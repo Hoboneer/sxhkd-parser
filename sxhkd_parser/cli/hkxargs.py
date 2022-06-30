@@ -214,7 +214,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         get_command_name(__file__),
         description="Run commands on sxhkdrc keybinds",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
     )
     add_repl_str_options(parser)
@@ -224,7 +223,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         # "edit [commands]"
         choices=["edit", "filter", "linter"],
         default="edit",
-        help="set mode",
+        help="set mode (default: %(default)s)",
     )
     parser.add_argument(
         "--exclude-synchronous-marker",
@@ -237,7 +236,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-f",
         default="%{file}:%{line}:%{column}:%{message}",
         type=parse_linter_format,
-        help="set linter error message format",
+        help="set linter error message format (default: %(default)s)",
     )
     parser.add_argument(
         "--exec",
@@ -250,7 +249,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-d",
         default=0,
         type=float,
-        help="wait DELAY seconds between each --exec command invocation",
+        help="wait DELAY seconds between each --exec command invocation (default: %(default)s)",
     )
     parser.add_argument(
         "command",

@@ -81,7 +81,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         PROGNAME,
         description="Debug sxhkd config files",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
     )
 

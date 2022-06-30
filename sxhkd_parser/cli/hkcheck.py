@@ -38,14 +38,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         get_command_name(__file__),
         description="Check hotkeys for invalid keysyms, duplicates, conflicts, and truncation",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
     )
     parser.add_argument(
         "--sxhkd-version",
         "-S",
         default="auto",
-        help="minimum sxhkd version: if 'auto', determine from output of `sxhkd -v` (currently a no-op)",
+        help="minimum sxhkd version: if 'auto', determine from output of `sxhkd -v` (currently a no-op) (default: %(default)s)",
     )
 
     namespace = parser.parse_args(argv)

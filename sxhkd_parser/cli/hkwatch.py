@@ -174,20 +174,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         PROGNAME,
         description="Tail the status fifo and output the current sxhkd mode until exit.  Needs only the H*, B*, and E* fifo messages.  Send SIGUSR1 to reload config and SIGUSR2 to print the current mode.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         parents=[BASE_PARSER],
     )
     parser.add_argument(
         "--status-fifo",
         "-s",
         default="-",
-        help="the location of the status fifo ('-' for stdin)",
+        help="the location of the status fifo ('-' for stdin) (default: %(default)s)",
     )
     parser.add_argument(
         "--mode-field",
         "-m",
         default="mode",
-        help="metadata key indicating the mode that a noabort hotkey belongs to",
+        help="metadata key indicating the mode that a noabort hotkey belongs to (default: %(default)s)",
     )
     parser.add_argument(
         "--notify-send-on-config-read",
