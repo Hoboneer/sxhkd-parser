@@ -275,6 +275,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         dest="records",
         action="store_const",
         const="sections",
+        help="alias for --records=sections",
     )
     records_group.add_argument(
         "--keybinds-only",
@@ -282,6 +283,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         dest="records",
         action="store_const",
         const="keybinds",
+        help="alias for --records=keybinds",
     )
 
     # TODO: allow configuring whether to specially process 'mode' in the metadata
