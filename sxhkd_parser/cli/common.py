@@ -45,8 +45,8 @@ def get_command_name(path: str) -> str:
 def find_sxhkdrc() -> Optional[str]:
     """Find any existing sxhkdrc in the standard directories.
 
-    Looks in $XDG_CONFIG_HOME (default: $HOME/.config) for subdirs
-    'sxhkd/sxhkdrc/'.  Returns `None` if the $HOME variable doesn't exist or
+    Looks in $XDG_CONFIG_HOME (default: $HOME/.config) for subdir
+    'sxhkd/'.  Returns `None` if the $HOME variable doesn't exist or
     the sxhkdrc at the standard location doesn't exist.
     """
     xdg_config_home = os.getenv("XDG_CONFIG_HOME")
