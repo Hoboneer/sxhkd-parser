@@ -1,0 +1,38 @@
+#!/bin/sh
+# DESCRIPTION: chord watcher for sxhkd to use in indicating mode in wm
+# DEPENDENCIES: hkwatch notify-send sxhkd
+# NOTE: Only one instance should be open at once since only one can read from the named pipe.
+echo "$$" > "$XDG_RUNTIME_DIR/bspwm/watch_sxhkd.pid"
+
+fifo="${SXHKD_FIFO:-$XDG_RUNTIME_DIR/sxhkd/status.fifo}"
+outfifo="$XDG_RUNTIME_DIR/sxhkd/mode.fifo"
+
+# Ensure fifo exists.
+[ -p "$outfifo" ] || { rm -f "$outfifo"; mkfifo "$outfifo"; }
+
+# Prevent accidentally killing this process and subprocesses when operating on
+# the actual sxhkd process.
+trap '' USR1
+trap '' USR2
+
+hkwatch -s "$fifo" --notify-send-on-config-read --notify-send-on-config-read-error $(cat "${XDG_CONFIG_HOME:-$HOME/.config}/sxhkd/PARSER-ARGS") 2>/tmp/hkwatch.log |
+	while IFS= read -r line; do
+		message="${line#?}"
+		typ="${line%$message}"
+		case $typ in
+			[NC])
+				echo "$message" >"$outfifo"
+				;;
+			M)	# Mode!
+				# Alert colour from polybar.
+				# TODO: sync them
+				echo "%{F#bd2c40}$message%{F-}" >"$outfifo"
+				;;
+			U)	# Unknown mode!
+				# Alert colour from polybar.
+				# TODO: sync them
+				echo "$typ%{F#bd2c40}$message%{F-}" >"$outfifo"
+				;;
+		esac
+	done
+notify-send -t 1000 -u "watch_sxhkd" "Read entire fifo.  Quitting..."

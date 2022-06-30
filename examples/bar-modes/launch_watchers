@@ -1,0 +1,16 @@
+#!/bin/sh
+# DESCRIPTION: Launch watcher scripts for desktop sessions.
+# DEPENDENCIES: pkill(procps-ng)
+bspwm_dir="$(dirname -- "$(readlink -f -- "$0")")"
+for script in "$bspwm_dir"/watch/*; do
+	if ! [ -r "$script" ] && ! [ -x "$script" ]; then
+		continue
+	fi
+	pidfile="$XDG_RUNTIME_DIR/bspwm/watch_$(basename -- "$script").pid"
+	if [ -r "$pidfile" ]; then
+		pid="$(cat "$pidfile")"
+		pkill --parent "$pid"
+	fi
+	mkdir -p "$(dirname -- "$pidfile")"
+	"$script" &
+done
