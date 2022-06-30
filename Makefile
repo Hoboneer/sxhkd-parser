@@ -51,12 +51,18 @@ clean:
 	-rm -fr *.egg-info/
 	-rm -fr build/
 	-rm -fr dist/
+	-rm -f *.1
 
 .PHONY: dist
-dist: keysyms format check-dev
+dist: keysyms format check-dev man
 	python setup.py sdist bdist_wheel
 	twine check dist/*
 
 .PHONY: upload
 upload:
 	twine upload dist/*
+
+.PHONY: man
+man: man/hkfind.1
+man/%.1: man/%.scd
+	scdoc <$< >$@

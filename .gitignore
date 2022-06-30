@@ -8,3 +8,4 @@ build/
 dist/
 *.egg-info
 keysyms/keysyms.py
+man/*.1

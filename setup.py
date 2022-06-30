@@ -1,3 +1,4 @@
+import glob
 import os
 
 from setuptools import setup
@@ -11,4 +12,7 @@ for hkscript in os.scandir(scriptpath):
     console_scripts.append(
         f"{scriptname} = {scriptpath.replace('/', '.')}.{scriptname}:main"
     )
-setup(entry_points={"console_scripts": console_scripts})
+setup(
+    entry_points={"console_scripts": console_scripts},
+    data_files=[("share/man/man1", glob.glob("man/*.1"))],
+)
