@@ -15,6 +15,11 @@ sxhkd-parser is a mostly complete library written in Python for parsing
 
 For more, see the modules prefixed with `hk` in `sxhkd_parser/cli/`.
 
+## Interface Stability
+
+The library API has no guarantees about stability (yet), but the interface of
+the CLI tools should be relatively more stable.
+
 ## Quickstart
 
 ### Print all your keybinds
