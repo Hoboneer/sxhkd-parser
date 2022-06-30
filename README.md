@@ -81,3 +81,7 @@ are unsupported.  The list follows:
     - The library enforces the invariant that, within each keybind, the number
       of permutations of the hotkey and the command are equal.
     - It's undocumented and thus unlikely to be used that much anyway.
+
+Also, using `@` or `~` at the start of the hotkey instead of just before the
+keysym (as documented in the manpage) is unsupported.  Use the documented
+syntax.
