@@ -191,12 +191,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--notify-send-on-config-read",
         action="store_true",
-        help="whether to call `notify-send` when reading configs",
+        help="call `notify-send` when reading configs",
     )
     parser.add_argument(
         "--notify-send-on-config-read-error",
         action="store_true",
-        help="whether to call `notify-send` upon config read error",
+        help="call `notify-send` upon config read error",
     )
 
     namespace = parser.parse_args(argv)
