@@ -12,6 +12,7 @@ sxhkd-parser is a mostly complete library written in Python for parsing
 - `hkfind`: Get hotkeys that match given search criteria.
 - `hkxargs`: Execute commands on a keybind's command for editing them,
   retrieving some information from them, or running linters on them.
+- `hkdebug`: Retrieve information useful for debugging the config.
 
 For more, see the modules prefixed with `hk` in `sxhkd_parser/cli/`.
 
