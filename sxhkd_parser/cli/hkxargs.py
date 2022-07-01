@@ -429,7 +429,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             if cmd and not failed:
                 # Escape braces in command.
                 # NOTE: At this point, `cmd` is clean and without spans, so any
-                # existing backslashes are literal.
+                # existing braces are literal.
                 if namespace.mode == "edit":
                     cmd = cmd.replace("{", "\\{").replace("}", "\\}")
 
