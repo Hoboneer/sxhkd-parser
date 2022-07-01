@@ -259,7 +259,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if namespace.command and namespace.command[0] == "--":
         namespace.command = namespace.command[1:]
     section_handler, metadata_parser = process_args(namespace)
-    if namespace.mode in ("filter", "linter"):
+    if namespace.mode != "edit":
         if namespace.exec:
             print(
                 f"cannot use --mode={namespace.mode} with --exec",
@@ -315,7 +315,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             bind, cmd, synchronous = keybinds[hk]
             with open(os.path.join(tmpdir, hk), "w") as f:
                 f.write(cmd)
-            if namespace.mode not in ("filter", "linter"):
+            if namespace.mode == "edit":
                 print(hk)
 
             failed = False
@@ -395,7 +395,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             assert namespace.mode != "linter"
 
             if namespace.exec and not failed:
-                assert namespace.mode not in ("filter", "linter")
+                assert namespace.mode == "edit"
                 cmdline = [sxhkd_shell, "-c", cmd]
                 # exit codes reduced by 64 (except CODE_OTHER) to distinguish
                 # which subprocess out of the intrinsic one and the --exec/-e
