@@ -1,12 +1,10 @@
 # Rough grammar with non-standard syntax for hkfind expressions.
 # SYNTAX:
-#   - Separate different tokens by whitespace, but if *not* separated by whitespace, match *within* a token.
+#   - Separate different tokens by whitespace.
 #   - Unnamed terminal token: " ... "
 #   - Disjunction: ... | ...
 #   - Grouping: ( ... )
 #   - Optional group: [ ... ]
-#   - Rule name delimiter: { NAME }
-#     - useful for intra-token matches
 #   - Regex: / ... /
 #   - Regex negation: !/ ... /
 # NOTE: scanner-less parser since just taking tokens straight from argv.
