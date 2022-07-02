@@ -258,7 +258,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--expand",
         "-E",
         action="store_true",
-        help="expand embedded sequences (also expands the 'description' field if the permutations match)",
+        help="expand embedded sequences",
     )
     records_group = parser.add_mutually_exclusive_group()
     records_group.add_argument(
