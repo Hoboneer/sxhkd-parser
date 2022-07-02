@@ -44,12 +44,15 @@ does its hotkey get written to standard output.
 
 \-has _name_
 	True if the key _name_ is in the metadata of the keybind.
-\-has _name_=_value_
+\-has _name_ = _value_
 	True if the value of _name_ is exactly _value_.  Whitespace is
 	significant before and after the "=".
-\-has _name_!=_value_
+\-has _name_ != _value_
 	True if the value of _name_ is *not* _value_.  Whitespace is
 	significant before and after the "!=".
+*NOTE ON GREEDINESS*: *-has* consumes more than one argument _only_ if the next argument cannot possibly be interpreted as another predicate or as a logical operator.  That is, *-has* consumes three arguments if the argument after _name_:
+. does not start with *-* (predicate); and
+. is not exactly *!* (negation), *(*, or *)* (grouping).
 
 \-in _path_++
 \-child-of _path_

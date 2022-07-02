@@ -1,6 +1,5 @@
 """Tool to search keybinds that match given search criteria."""
 import argparse
-import re
 import subprocess
 import sys
 import tempfile
@@ -323,13 +322,15 @@ class MetadataPredicate(PredicateExpression):
 
     @classmethod
     def from_args(cls, args: Deque[str]) -> Expression:
-        m = re.match(
-            r"(?P<name>[A-Za-z0-9_]+)(?:(?P<op>!?=)(?P<value>.+))?",
-            args.popleft(),
-        )
-        if not m:
-            raise ValueError
-        return cls(m.group("name"), m.group("op"), m.group("value"))
+        name = args.popleft()
+        # -has should only consume further arguments if the next one cannot
+        # possibly be interpreted as another predicate or as a logical
+        # operator.
+        if not args or (args[0].startswith("-") or args[0] in ("!", "(", ")")):
+            return cls(name)
+        operator = args.popleft()
+        value = args.popleft()
+        return cls(name, operator, value)
 
     def match(
         self, keybind: Keybind, path: List[str], ctx: KeybindMatcherContext
@@ -359,7 +360,7 @@ class MetadataPredicate(PredicateExpression):
     def print(self, level: int = 0) -> None:
         if self.value:
             print(
-                f"{' ' * level}metadata-value: {self.name!r}{self.operator}{self.value!r}"
+                f"{' ' * level}metadata-value: {self.name!r} {self.operator} {self.value!r}"
             )
         else:
             print(f"{' ' * level}metadata-exists: {self.name!r}")
