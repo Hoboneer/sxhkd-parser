@@ -6,8 +6,8 @@ These are some implementer's notes about sxhkd and its behaviour.
 
 ### Character limit in hotkeys and commands
 
-Version 0.5.1 - 0.6.2 (inclusive) of sxhkd limits hotkeys and commands to 512
-bytes.  `hkcheck` warns when it is exceeded.
+Version 0.5.1 - \<current version (0.6.2)> (inclusive) of sxhkd limits
+hotkeys and commands to 512 bytes.  `hkcheck` warns when it is exceeded.
 
 ### Single chord limit after noabort character (`:`) in hotkeys
 
