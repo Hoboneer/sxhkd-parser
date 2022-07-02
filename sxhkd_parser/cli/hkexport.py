@@ -251,9 +251,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--fields",
         "-F",
-        default=["hotkey", "description", "mode"],
-        type=lambda x: x.split(","),
-        help="the metadata fields and the order in which to print them ('hotkey' isn't strictly metadata, but oh well) (default: %(default)s)",
+        default="hotkey,description,mode",
+        help="comma-separated list of the metadata fields to include and the order in which to print them ('hotkey' isn't strictly metadata, but oh well) (default: %(default)s)",
     )
     parser.add_argument(
         "--expand",
@@ -290,6 +289,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     #   - maybe allow configuring what key it is?
 
     namespace = parser.parse_args(argv)
+    namespace.fields = namespace.fields.split(",")
     section_handler, metadata_parser = process_args(namespace)
 
     # Exhaust the generator function to read all keybinds.
