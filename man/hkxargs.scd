@@ -6,7 +6,7 @@ hkxargs - run commands on *sxhkd*(1) keybinds
 
 # SYNOPSYS
 
-hkxargs [options...] [command]
+hkxargs [options...] [_command_]
 
 # DESCRIPTION
 

@@ -6,7 +6,7 @@ hkfind - find *sxhkd*(1) hotkeys that match a search expression
 
 # SYNOPSIS
 
-*hkfind* [options...] [expression]
+*hkfind* [options...] [_expression_]
 
 # DESCRIPTION
 
