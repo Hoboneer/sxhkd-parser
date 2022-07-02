@@ -63,6 +63,6 @@ upload:
 	twine upload dist/*
 
 .PHONY: man
-man: man/hkfind.1 man/hkxargs.1 man/hkwatch.1 man/hkexport.1 man/hkcheck.1
+man: man/hkfind.1 man/hkxargs.1 man/hkwatch.1 man/hkexport.1 man/hkcheck.1 man/hkdebug.1
 man/%.1: man/%.scd
 	scdoc <$< >$@
