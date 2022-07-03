@@ -105,6 +105,6 @@ are unsupported.  The list follows:
       of permutations of the hotkey and the command are equal.
     - It's undocumented and thus unlikely to be used that much anyway.
 
-Also, using `@` or `~` at the start of the hotkey instead of just before the
-keysym (as documented in the manpage) is unsupported.  Use the documented
-syntax.
+Also, using `@` or `~` at the start of the hotkey instead of just before
+the keysym (as documented in the manpage of `sxhkd`) is unsupported.
+Use the documented syntax.

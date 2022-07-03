@@ -76,8 +76,8 @@ sxhkd are unsupported:
     - It's undocumented and thus unlikely to be used that much anyway.
 
 Also, using *@* or *~* at the start of the hotkey instead of just before
-the keysym (as documented in the manpage) is unsupported.  Use the
-documented syntax.
+the keysym (as documented in the manpage of *sxhkd*(1)) is unsupported.
+Use the documented syntax.
 
 # SEE ALSO
 
