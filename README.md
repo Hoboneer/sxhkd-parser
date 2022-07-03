@@ -23,6 +23,22 @@ the CLI tools should be relatively more stable.
 
 ## Quickstart
 
+### Install
+
+We will use [pipx](https://github.com/pypa/pipx) because it is convenient.
+`pipx` is available on distro repositories.
+
+Run `pipx install sxhkd-parser`.
+
+#### Manuals
+
+If your system uses [man-db](https://www.nongnu.org/man-db/), include
+`export MANPATH="$HOME/.local/pipx/venvs/sxhkd-parser/share/man:"` in
+`.profile`, `.bashrc`, or any startup config file of your choice.
+
+Run `man <TOOL>` for the details of each tool.  `man 7 sxhkd-parser`
+also has the background information needed to use them.
+
 ### Print all your keybinds
 
 ```python
