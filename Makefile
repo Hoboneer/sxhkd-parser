@@ -51,7 +51,7 @@ clean:
 	-rm -fr *.egg-info/
 	-rm -fr build/
 	-rm -fr dist/
-	-rm -f *.1
+	-rm -f *.1 *.7
 
 .PHONY: dist
 dist: keysyms format check-dev man
