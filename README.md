@@ -77,6 +77,7 @@ are unsupported.  The list follows:
   hotkey:
     - Each `Hotkey` object has a single `noabort_index` attribute.  This will
       not change.
+    - So, it's best to keep `:` outside of any sequences.
 - Alphanumeric ranges within sequences of the form `{s1,s2,s3,...,sn}`:
     - These are OK:
       - Alphabetic: `A-Z`, `a-z`, `A-F`, `a-f`, `A-z` (within ASCII)
