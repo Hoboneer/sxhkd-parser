@@ -14,11 +14,8 @@ hkdebug - debug *sxhkd*(1) configs
 internal state of the *sxhkd-parser* library backing *hkcheck*(1),
 *hkfind*(1), *hkxargs*(1), *hkwatch*(1), etc.
 
-## NOTE ON TERMINOLOGY
-
-. Hotkey: The sequence of chords needed to activate a command.
-. Command: The command passed to the shell after the hotkey is completed.
-. Keybind: The entity that encompasses the above.
+See *sxhkd-parser*(7) for important background information needed to
+use this tool.
 
 # OPTIONS
 
@@ -81,4 +78,4 @@ in scripts.
 
 # SEE ALSO
 
-*sxhkd*(1), *hkcheck*(1), *hkfind*(1), *hkxargs*(1), *hkwatch*(1)
+*sxhkd*(1), *hkcheck*(1), *hkfind*(1), *hkxargs*(1), *hkwatch*(1), *sxhkd-parser*(7)

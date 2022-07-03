@@ -16,10 +16,13 @@ It optionally expands embedded sequences in the hotkey and *description*
 field of the metadata (if the number of permutations match those of the
 hotkey) with the *-E* option.
 
+See *sxhkd-parser*(7) for important background information needed to
+use this tool.
+
 # OPTIONS
 
 Run *hkexport --help*.
 
 # SEE ALSO
 
-*sxhkd*(1)
+*sxhkd*(1), *sxhkd-parser*(7)

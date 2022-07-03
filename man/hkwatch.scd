@@ -60,6 +60,9 @@ Upon seeing an *EEnd chain* message, the mode is set to *normal* again
 *NOTE: The output is undefined when the parsed hotkey doesn't exist in the
 config.*
 
+See *sxhkd-parser*(7) for important background information needed to
+use this tool.
+
 # OPTIONS
 
 Run *hkwatch --help*.  Some important options for *hkwatch* are *-s*
@@ -107,4 +110,4 @@ Upon receiving these signals, *hkwatch* will take certain actions.
 
 # SEE ALSO
 
-*sxhkd*(1)
+*sxhkd*(1), *sxhkd-parser*(7)

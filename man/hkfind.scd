@@ -15,6 +15,9 @@ expression, similar in spirit to *find*(1).  It writes the hotkeys for
 the matching keybinds to standard output.  If _expression_ is omitted,
 all keybinds are matched.
 
+See *sxhkd-parser*(7) for important background information needed to
+use this tool.
+
 # OPTIONS
 
 Run *hkfind --help*.
@@ -88,4 +91,4 @@ greater than 0 if any do.
 
 # SEE ALSO
 
-*sxhkd*(1), *find*(1)
+*sxhkd*(1), *find*(1), *sxhkd-parser*(7)

@@ -16,6 +16,9 @@ of the config that contain user errors, violations of limitations in
 compiler error messages and contain the line (and possibly column)
 in the config file where the error occurs.
 
+See *sxhkd-parser*(7) for important background information needed to
+use this tool.
+
 # OPTIONS
 
 Run *hkcheck --help*.
@@ -86,4 +89,4 @@ Run *hkcheck --help*.
 
 # SEE ALSO
 
-*sxhkd*(1)
+*sxhkd*(1), *sxhkd-parser*(7)

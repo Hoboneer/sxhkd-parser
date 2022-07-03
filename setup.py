@@ -14,5 +14,8 @@ for hkscript in os.scandir(scriptpath):
     )
 setup(
     entry_points={"console_scripts": console_scripts},
-    data_files=[("share/man/man1", glob.glob("man/*.1"))],
+    data_files=[
+        (f"share/man/man{section}", glob.glob(f"man/*.{section}"))
+        for section in (1, 7)
+    ],
 )

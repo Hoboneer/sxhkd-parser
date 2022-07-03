@@ -25,6 +25,9 @@ command replacement string appended to it as a final argument.
 Based on the mode specified by the *--mode* option, *hkxargs* uses the
 standard output of each invocation of _command_.
 
+See *sxhkd-parser*(7) for important background information needed to
+use this tool.
+
 # OPTIONS
 
 Run *hkxargs --help*.
@@ -109,4 +112,4 @@ $ hkfind | hkxargs -m linter shellcheck -s sh -f gcc --color=always | uniq
 
 # SEE ALSO
 
-*sxhkd*(1), *xargs*(1), *hkfind*(1), *shellcheck*(1)
+*sxhkd*(1), *xargs*(1), *hkfind*(1), *shellcheck*(1), *sxhkd-parser*(7)

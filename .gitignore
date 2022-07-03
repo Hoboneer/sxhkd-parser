@@ -9,3 +9,4 @@ dist/
 *.egg-info
 keysyms/keysyms.py
 man/*.1
+man/*.7
