@@ -1,7 +1,9 @@
 # sxhkd-parser
 
-sxhkd-parser is a mostly complete library written in Python for parsing
-[sxhkd](https://github.com/baskerville/sxhkd) configs.
+sxhkd-parser is a mostly complete library written in Python 3.7 for
+parsing [sxhkd](https://github.com/baskerville/sxhkd) configs.
+
+It has no dependencies and will not have any in the future.
 
 ## Bundled tools
 
@@ -16,10 +18,19 @@ sxhkd-parser is a mostly complete library written in Python for parsing
 
 For more, see the modules prefixed with `hk` in `sxhkd_parser/cli/`.
 
+## Goals
+
+- Provide a high-level library for manipulating `sxhkd` configs
+- Be a test-bed for compatible extensions to `sxhkdrc` syntax
+
 ## Interface Stability
 
 The library API has no guarantees about stability (yet), but the interface of
 the CLI tools should be relatively more stable.
+
+This project follows [semantic versioning](https://semver.org/).  On v1.0.0,
+the library API will be stable and the CLI tools will be split into a separate
+Python package after which they can start to have dependencies.
 
 ## Quickstart
 
