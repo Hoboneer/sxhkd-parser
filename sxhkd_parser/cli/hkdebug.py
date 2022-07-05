@@ -109,7 +109,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-I",
         type=parse_internal_nodes,
         default=INTERNAL_NODES,
-        help=f"the comma-separated sequence of internal node types to be included in the tree (choices: {braced_all_choices}) (default: {','.join(INTERNAL_NODES)})",
+        help=f"the comma-separated sequence of internal node types to be included in the tree (choices: \"none\" or a sequence of {braced_all_choices}) (default: {','.join(INTERNAL_NODES)})",
     )
 
     parser_span_tree = subparsers.add_parser(
