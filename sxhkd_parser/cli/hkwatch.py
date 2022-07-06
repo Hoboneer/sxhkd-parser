@@ -26,7 +26,6 @@ from ..parser import (
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
-    IGNORE_HOTKEY_ERRORS,
     find_duplicates,
     find_maybe_invalid_keysyms,
     find_prefix_conflicts,
@@ -53,8 +52,6 @@ def read_config(
         config,
         section_handler=section_handler,
         metadata_parser=metadata_parser,
-        # Handle them ourselves.
-        hotkey_errors=IGNORE_HOTKEY_ERRORS,
     ):
         if isinstance(bind_or_err, SXHKDParserError):
             msg = format_error_msg(bind_or_err, config)

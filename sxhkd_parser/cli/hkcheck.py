@@ -11,7 +11,6 @@ from ..seq import SequenceSpan
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
-    IGNORE_HOTKEY_ERRORS,
     Message,
     find_duplicates,
     find_maybe_invalid_keysyms,
@@ -60,8 +59,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             namespace.sxhkdrc,
             section_handler=section_handler,
             metadata_parser=metadata_parser,
-            # Handle them ourselves.
-            hotkey_errors=IGNORE_HOTKEY_ERRORS,
         ):
             if isinstance(bind_or_err, SXHKDParserError):
                 errors.append(bind_or_err)

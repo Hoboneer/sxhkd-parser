@@ -1,16 +1,6 @@
 """Convenience functions for using the library."""
 from os import PathLike
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    TextIO,
-    Union,
-    cast,
-)
+from typing import Any, Dict, Iterable, List, Optional, TextIO, Union, cast
 
 from .errors import MissingHotkeyError, SXHKDParserError
 from .metadata import MetadataParser, NullMetadataParser, SectionHandler
@@ -23,7 +13,6 @@ def read_sxhkdrc(
     file: Union[str, PathLike[str], TextIO],
     section_handler: Optional[SectionHandler] = None,
     metadata_parser: Optional[MetadataParser] = None,
-    hotkey_errors: Optional[Mapping[str, bool]] = None,
 ) -> Iterable[Union[SXHKDParserError, Keybind]]:
     """Parse keybinds from a given file or path, yielding a stream.
 
@@ -135,7 +124,6 @@ def read_sxhkdrc(
                         hotkey_start_line=hotkey_start_line,
                         command_start_line=command_start_line,
                         metadata=metadata,
-                        hotkey_errors=hotkey_errors,
                     )
                 except SXHKDParserError as e:
                     yield e

@@ -13,7 +13,6 @@ from ..seq import expand_sequences
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
-    IGNORE_HOTKEY_ERRORS,
     format_error_msg,
     get_command_name,
     print_exceptions,
@@ -298,7 +297,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             namespace.sxhkdrc,
             section_handler=section_handler,
             metadata_parser=metadata_parser,
-            hotkey_errors=IGNORE_HOTKEY_ERRORS,
         ):
             if isinstance(bind_or_err, SXHKDParserError):
                 msg = format_error_msg(bind_or_err, namespace.sxhkdrc)

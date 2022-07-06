@@ -7,17 +7,7 @@ import re
 import string
 import sys
 from dataclasses import dataclass
-from typing import (
-    IO,
-    Dict,
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import IO, Iterable, List, NamedTuple, Optional, Tuple, Union, cast
 
 from .._package import __version__
 from ..errors import SXHKDParserError
@@ -159,13 +149,6 @@ def process_args(
         )
 
     return (section_handler, metadata_parser)
-
-
-IGNORE_HOTKEY_ERRORS: Dict[str, bool] = {
-    "duplicate_permutations": False,
-    "conflicting_permutations": False,
-    "maybe_invalid_keysyms": False,
-}
 
 
 @dataclass

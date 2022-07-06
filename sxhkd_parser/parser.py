@@ -27,7 +27,6 @@ from typing import (
     Generic,
     Iterable,
     List,
-    Mapping,
     Optional,
     Set,
     Tuple,
@@ -40,18 +39,14 @@ from typing import (
 from weakref import ProxyType, proxy
 
 from .errors import (
-    ConflictingChainPrefixError,
-    DuplicateChordPermutationError,
     DuplicateModifierError,
     HotkeyParseError,
     HotkeyTokenizeError,
     InconsistentKeybindCasesError,
     InconsistentNoabortError,
     NonTerminalStateExitError,
-    PossiblyInvalidKeysyms,
     UnexpectedTokenError,
 )
-from .keysyms import KEYSYMS
 from .seq import SpanTree, expand_sequences
 
 __all__ = [
@@ -726,8 +721,6 @@ class Hotkey:
         self.span_tree = expand_sequences(hotkey, start_line=self.line or 1)
 
         self.permutations = []
-        # Map perms to indices in `self.permutations`.
-        seen_perms: Dict[Tuple[Tuple[Chord, ...], Optional[int]], int] = {}
 
         for i, flat_perm in enumerate(self.span_tree.generate_permutations()):
             tokens = Hotkey.tokenize(str(flat_perm), self.line)
@@ -739,10 +732,8 @@ class Hotkey:
                 e.line = self.line
                 raise
 
-            perm_tuple = (tuple(curr_perm.chords), curr_perm.noabort_index)
             if i == 0:
                 self.noabort_index = curr_perm.noabort_index
-                seen_perms[perm_tuple] = i
                 self.permutations.append(curr_perm)
                 continue
 
@@ -762,50 +753,7 @@ class Hotkey:
                     line=line,
                 )
 
-            if check_duplicate_permutations and perm_tuple in seen_perms:
-                raise DuplicateChordPermutationError(
-                    f"Duplicate permutation '{curr_perm}'",
-                    dup_perm=curr_perm,
-                    perm1_index=i,
-                    perm2_index=seen_perms[perm_tuple],
-                    line=line,
-                )
-            seen_perms[perm_tuple] = i
             self.permutations.append(curr_perm)
-
-        if check_conflicting_permutations:
-            tree = self.get_tree(["modifierset"])
-            for (
-                prefix,
-                conflicts,
-            ) in tree.find_conflicting_chain_prefixes():
-                conflicts_str = []
-                for conflict in conflicts:
-                    assert conflict.permutation is not None
-                    conflicts_str.append(f"'{conflict.permutation}'")
-
-                assert prefix.permutation is not None
-                # Fail on the first conflict.
-                raise ConflictingChainPrefixError(
-                    f"'{prefix.permutation}' conflicts with {', '.join(conflicts_str)}",
-                    chain_prefix=prefix,
-                    conflicts=conflicts,
-                    line=line,
-                )
-
-        if check_maybe_invalid_keysyms:
-            maybe_invalid_keysyms = set()
-            for perm in self.permutations:
-                for chord in perm.chords:
-                    if chord.keysym not in KEYSYMS:
-                        maybe_invalid_keysyms.add(chord.keysym)
-            if maybe_invalid_keysyms:
-                keysym_str = " ,".join(f"'{k}'" for k in maybe_invalid_keysyms)
-                raise PossiblyInvalidKeysyms(
-                    f"Possibly invalid keysyms: {keysym_str}",
-                    keysyms=maybe_invalid_keysyms,
-                    line=line,
-                )
 
     @property
     def noabort(self) -> bool:
@@ -1080,7 +1028,6 @@ class Keybind:
         hotkey_start_line: Optional[int] = None,
         command_start_line: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        hotkey_errors: Optional[Mapping[str, bool]] = None,
     ):
         """Create an instance with the the hotkey and command text.
 
@@ -1093,14 +1040,11 @@ class Keybind:
         """
         if metadata is None:
             metadata = {}
-        if hotkey_errors is None:
-            hotkey_errors = {}
         self.metadata = metadata
 
         self.hotkey: Hotkey = Hotkey(
             hotkey,
             line=hotkey_start_line,
-            **{f"check_{k}": v for k, v in hotkey_errors.items()},
         )
         self.hotkey.keybind = proxy(self)
         self.command: Command = Command(command, line=command_start_line)
