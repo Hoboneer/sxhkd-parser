@@ -9,7 +9,7 @@ from typing import Dict, Iterable, List, Optional, Set, Type
 
 from ..errors import SXHKDParserError
 from ..metadata import SectionTreeNode
-from ..parser import expand_sequences
+from ..seq import expand_sequences
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,

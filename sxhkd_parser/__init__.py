@@ -11,4 +11,5 @@ from .errors import *
 from .keysyms import *
 from .metadata import *
 from .parser import *
+from .seq import *
 from .util import *

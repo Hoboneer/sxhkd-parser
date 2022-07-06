@@ -44,7 +44,8 @@ from typing import (
 )
 
 from .errors import MetadataParserError, SectionEOFError, SectionPushError
-from .parser import Keybind, SpanTree, expand_sequences
+from .parser import Keybind
+from .seq import SpanTree, expand_sequences
 
 __all__ = [
     # General.

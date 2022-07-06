@@ -7,7 +7,8 @@ from typing import List, Optional
 
 from ..errors import SXHKDParserError
 from ..metadata import SectionTreeNode
-from ..parser import HotkeyTree, Keybind, SequenceSpan, Span, TextSpan
+from ..parser import HotkeyTree, Keybind
+from ..seq import SequenceSpan, Span, TextSpan
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,

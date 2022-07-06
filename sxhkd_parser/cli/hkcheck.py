@@ -6,7 +6,8 @@ from itertools import chain
 from typing import List, Optional, Union, cast
 
 from ..errors import SXHKDParserError
-from ..parser import HotkeyTree, SequenceSpan
+from ..parser import HotkeyTree
+from ..seq import SequenceSpan
 from ..util import read_sxhkdrc
 from .common import (
     BASE_PARSER,
